@@ -15,7 +15,7 @@ const MIME = {
 
 // ── HTTP: serve static files ──────────────────────────────────────────────────
 const server = http.createServer((req, res) => {
-  const url      = req.url === '/' ? '/reich-phase.html' : req.url;
+  const url      = req.url === '/' ? '/index.html' : req.url;
   const filePath = path.resolve(path.join(ROOT, url.split('?')[0]));
 
   // Block path traversal

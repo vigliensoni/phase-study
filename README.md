@@ -11,7 +11,7 @@ This study makes that process visible and audible in real time: any audio file y
 ## Files
 
 ```
-reich-phase.html   Main HTML document
+index.html         Main HTML document
 style.css          All visual styling
 script.js          Audio engine, UI logic, and visualizations
 controller.html    Mobile touch controller (served via the Node server)
@@ -42,7 +42,7 @@ Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, c
 
 ### Without the server
 
-Open `reich-phase.html` directly in any modern browser. No build step required — the file loads `style.css` and `script.js` from the same directory. The WebSocket layer is skipped silently when the page is opened as a `file://` URL.
+Open `index.html` directly in any modern browser. No build step required — the file loads `style.css` and `script.js` from the same directory. The WebSocket layer is skipped silently when the page is opened as a `file://` URL or from an HTTPS host such as GitHub Pages (the phone controller needs the local server).
 
 When the page is opened this way, some browsers block local audio decoding over `file://`; use the server instead.
 

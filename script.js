@@ -451,7 +451,9 @@ function stopRender() {
 const WS_PARAM_ONLY = new Set(['ratio','volume']);
 
 function connectWS() {
-  if (location.protocol === 'file:') return; // opened directly, not via server
+  // Only the local Node server (plain http) runs the relay; skip on file:// and
+  // https hosts like GitHub Pages, where ws:// would be blocked anyway.
+  if (location.protocol !== 'http:') return;
   try {
     ws = new WebSocket(`ws://${location.host}`);
 
