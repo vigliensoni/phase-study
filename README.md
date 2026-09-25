@@ -26,13 +26,8 @@ Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, c
 
 ### Audio sample
 - Drop or browse any WAV / AIFF / MP3 / OGG file (AIFF is decoded in JavaScript, so it works in every browser)
-- Waveform thumbnail with dual playhead display
-- Phase offset computed from elapsed time and playback rate ratio
-
-### Visualization
-- **Composite waveform** — real-time oscilloscope via Web Audio `AnalyserNode`
-- **Phase displacement bar** — normalized 0–1 offset between voices
-- **Drift history** — scrolling sine-encoded phase trail
+- Waveform thumbnail, plus a circular playhead display: the loop is one turn around a ring, with one hand per voice and the phase offset shown as an arc between them
+- Voice II's position is tracked across speed changes, so pausing phasing holds the current offset
 
 ### Controls
 | Control | Description |

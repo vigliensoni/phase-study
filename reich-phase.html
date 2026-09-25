@@ -51,30 +51,8 @@
           <span style="color:var(--c1)">▌</span> Voice I &nbsp;·&nbsp;
           <span style="color:var(--c2)">▌</span> Voice II — playhead positions
         </div>
-        <div class="playhead-track">
-          <div class="playhead-v1" id="ph1" style="left:0%"></div>
-          <div class="playhead-v2" id="ph2" style="left:0%"></div>
-        </div>
+        <div class="circle-wrap"><canvas id="playheadCircle"></canvas></div>
       </div>
-    </div>
-
-    <!-- Waveform -->
-    <div class="wave-section">
-      <div class="section-label">Composite waveform</div>
-      <div class="canvas-wrap">
-        <canvas id="waveCanvas"></canvas>
-      </div>
-    </div>
-
-    <!-- Phase -->
-    <div class="phase-section">
-      <div class="section-label">Phase displacement</div>
-      <div class="phase-row">
-        <div class="prl">Offset</div>
-        <div class="ph-bar"><div class="ph-fill" id="phFill"></div></div>
-        <div class="ph-val" id="phVal">0.000</div>
-      </div>
-      <canvas id="driftCanvas"></canvas>
     </div>
 
   </div>

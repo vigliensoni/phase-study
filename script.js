@@ -12,7 +12,7 @@ function toggleTheme() {
   try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
   updateThemeBtn();
   drawSampleThumb();
-  drawDrift();
+  drawCircle();
 }
 
 function updateThemeBtn() {
@@ -25,16 +25,12 @@ function updateThemeBtn() {
 // ═══════════════════════════════════════════════════════════════════════════════
 let audioCtx   = null;
 let masterGain = null;
-let analyser   = null;
 const panners  = [null, null];
 
 let isPlaying    = false;
 let phasingPaused = false;
-let frozenOffset  = 0;
 let animFrame     = null;
 let startTime     = 0;
-
-const DRIFT_HIST = new Array(400).fill(0);
 
 let speedRatio = 1.002;
 
@@ -47,6 +43,11 @@ let wsUpdating = false; // true while applying a received param → suppress ech
 // ═══════════════════════════════════════════════════════════════════════════════
 let sampleBuffer  = null;  // decoded AudioBuffer
 let sampleSources = [null, null]; // AudioBufferSourceNode per voice
+let playheadPos   = [0, 0]; // loop position 0–1 per voice
+// Voice II's position is integrated across rate changes (pause/resume, ratio
+// slider) so the display matches what's heard: sample time v2Base at context
+// time v2BaseTime, advancing at v2Rate.
+let v2Base = 0, v2BaseTime = 0, v2Rate = 1;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AUDIO INIT
@@ -55,11 +56,7 @@ function initAudio() {
   audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
   masterGain = audioCtx.createGain();
   masterGain.gain.value = +document.getElementById('volCtrl').value;
-  analyser   = audioCtx.createAnalyser();
-  analyser.fftSize = 1024;
-  analyser.smoothingTimeConstant = 0.82;
-  masterGain.connect(analyser);
-  analyser.connect(audioCtx.destination);
+  masterGain.connect(audioCtx.destination);
 
   panners[0] = audioCtx.createStereoPanner();
   panners[1] = audioCtx.createStereoPanner();
@@ -101,6 +98,7 @@ function loadFile(file) {
       document.getElementById('sampleDur').textContent =
         sampleBuffer.duration.toFixed(2) + 's';
       drawSampleThumb();
+      drawCircle();
     } catch(err) {
       alert('Could not decode audio file: ' + err.message);
     }
@@ -213,6 +211,7 @@ function startSample() {
   if (!sampleBuffer) return;
   const t = audioCtx.currentTime + 0.05;
   startTime = t;
+  v2Base = 0; v2BaseTime = t; v2Rate = speedRatio;
 
   // Stop any existing sources
   sampleSources.forEach(s => { if (s) try { s.stop(); } catch(e){} });
@@ -239,20 +238,15 @@ function stopSample() {
 // When resumed: restore speedRatio
 function applySampleRate() {
   if (!sampleSources[1]) return;
-  sampleSources[1].playbackRate.value = phasingPaused ? 1.0 : speedRatio;
+  setVoice2Rate(phasingPaused ? 1.0 : speedRatio);
 }
 
-// Estimate phase offset:
-// Both sources started at the same time. Voice II has played
-// elapsed * speedRatio seconds of sample time vs elapsed * 1.0 for voice I.
-// Offset in sample-time = elapsed * (speedRatio - 1).
-// Normalised to buffer duration = (offset % bufDur) / bufDur.
-function samplePhaseNorm() {
-  if (!sampleBuffer || !audioCtx) return 0;
-  const elapsed = audioCtx.currentTime - startTime;
-  const bufDur  = sampleBuffer.duration;
-  const offset  = (elapsed * (speedRatio - 1)) % bufDur;
-  return offset / bufDur;
+function setVoice2Rate(rate) {
+  const now = audioCtx.currentTime;
+  v2Base     = v2Base + Math.max(0, now - v2BaseTime) * v2Rate;
+  v2BaseTime = Math.max(now, v2BaseTime);
+  v2Rate     = rate;
+  sampleSources[1].playbackRate.value = rate;
 }
 
 // Playhead positions
@@ -260,10 +254,72 @@ function updatePlayheads() {
   if (!sampleBuffer || !audioCtx) return;
   const elapsed = audioCtx.currentTime - startTime;
   const bufDur  = sampleBuffer.duration;
-  const pos1 = (elapsed % bufDur) / bufDur * 100;
-  const pos2 = (elapsed * (phasingPaused ? 1 : speedRatio) % bufDur) / bufDur * 100;
-  document.getElementById('ph1').style.left = pos1 + '%';
-  document.getElementById('ph2').style.left = pos2 + '%';
+  const now     = audioCtx.currentTime;
+  const v2Time  = v2Base + Math.max(0, now - v2BaseTime) * v2Rate;
+  playheadPos = [
+    (Math.max(0, elapsed) % bufDur) / bufDur,
+    (v2Time % bufDur) / bufDur,
+  ];
+  drawCircle();
+}
+
+// Circular playhead display: the loop wraps once around the ring, starting at
+// 12 o'clock and running clockwise. The arc between the hands is the phase offset.
+function drawCircle() {
+  const canvas = document.getElementById('playheadCircle');
+  const dpr = window.devicePixelRatio || 1;
+  const r0  = canvas.getBoundingClientRect();
+  if (!r0.width) return;
+  if (canvas.width !== Math.round(r0.width * dpr) || canvas.height !== Math.round(r0.height * dpr)) {
+    canvas.width  = Math.round(r0.width  * dpr);
+    canvas.height = Math.round(r0.height * dpr);
+  }
+  const c  = canvas.getContext('2d');
+  const W  = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const R  = Math.min(W, H) / 2 - 8 * dpr;     // ring radius (room for the dots)
+  const ang = p => -Math.PI / 2 + p * Math.PI * 2;
+  c.clearRect(0, 0, W, H);
+
+  // Ring
+  c.strokeStyle = themeColor('--dim');
+  c.lineWidth = 1.5 * dpr;
+  c.beginPath();
+  c.arc(cx, cy, R, 0, Math.PI * 2);
+  c.stroke();
+
+  // Phase offset arc (Voice I → Voice II, clockwise)
+  const [p1, p2] = playheadPos;
+  const offset = ((p2 - p1) % 1 + 1) % 1;
+  if (offset > 0.0005) {
+    c.strokeStyle = themeColor('--cp');
+    c.lineWidth = 4 * dpr;
+    c.beginPath();
+    c.arc(cx, cy, R, ang(p1), ang(p1) + offset * Math.PI * 2);
+    c.stroke();
+  }
+
+  // Hands + dots (Voice II drawn first so Voice I stays visible when aligned)
+  [[p2, '--c2'], [p1, '--c1']].forEach(([p, col]) => {
+    const a = ang(p), color = themeColor(col);
+    const x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+    c.strokeStyle = color;
+    c.lineWidth = 2 * dpr;
+    c.beginPath();
+    c.moveTo(cx, cy);
+    c.lineTo(x, y);
+    c.stroke();
+    c.fillStyle = color;
+    c.beginPath();
+    c.arc(x, y, 6 * dpr, 0, Math.PI * 2);
+    c.fill();
+  });
+
+  // Hub
+  c.fillStyle = themeColor('--fg');
+  c.beginPath();
+  c.arc(cx, cy, 3 * dpr, 0, Math.PI * 2);
+  c.fill();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -299,7 +355,6 @@ function togglePlay() {
     btn.textContent = '▶   Start';
     document.getElementById('statusTxt').textContent = 'STOPPED';
     phasingPaused = false;
-    DRIFT_HIST.fill(0);
     const ph = document.getElementById('btnPhase');
     ph.disabled = true;
     ph.classList.remove('paused');
@@ -320,7 +375,6 @@ function resetPhase() {
   // Restart both sample sources in sync
   stopSample();
   startSample();
-  DRIFT_HIST.fill(0);
   document.getElementById('statusTxt').textContent = 'RUNNING';
   sendParam('statusUpdate', 'RUNNING');
 }
@@ -330,8 +384,7 @@ function togglePhasing() {
   const btn = document.getElementById('btnPhase');
 
   if (phasingPaused) {
-    // Snapshot current phase for display, then freeze voice II rate
-    frozenOffset = samplePhaseNorm();
+    // Freeze voice II rate
     applySampleRate();
 
     btn.textContent = '▶   Resume phasing';
@@ -356,7 +409,7 @@ function updateRatio() {
   document.getElementById('ratioVal').textContent = speedRatio.toFixed(4);
   // Live-update sample source if playing
   if (isPlaying && !phasingPaused && sampleSources[1]) {
-    sampleSources[1].playbackRate.value = speedRatio;
+    setVoice2Rate(speedRatio);
   }
   sendParam('ratio', speedRatio);
 }
@@ -371,85 +424,8 @@ function updateVol() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUALIZATION
 // ═══════════════════════════════════════════════════════════════════════════════
-const waveCanvas  = document.getElementById('waveCanvas');
-const driftCanvas = document.getElementById('driftCanvas');
-const wCtx = waveCanvas.getContext('2d');
-const dCtx = driftCanvas.getContext('2d');
-
-function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  [waveCanvas, driftCanvas].forEach(c => {
-    const r = c.getBoundingClientRect();
-    c.width  = r.width  * dpr;
-    c.height = r.height * dpr;
-  });
-}
-
-function drawWave() {
-  if (!analyser) return;
-  const dpr = window.devicePixelRatio || 1;
-  const W = waveCanvas.width, H = waveCanvas.height;
-  const buf = new Float32Array(analyser.fftSize);
-  analyser.getFloatTimeDomainData(buf);
-  wCtx.clearRect(0, 0, W, H);
-  wCtx.strokeStyle = themeColor('--c1');
-  wCtx.lineWidth = 1.5 * dpr;
-  wCtx.globalAlpha = 0.85;
-  wCtx.beginPath();
-  for (let i = 0; i < buf.length; i++) {
-    const x = (i / buf.length) * W;
-    const y = H / 2 + buf[i] * H * 0.42;
-    i === 0 ? wCtx.moveTo(x, y) : wCtx.lineTo(x, y);
-  }
-  wCtx.stroke();
-  wCtx.globalAlpha = 1;
-}
-
-function drawDrift() {
-  const dpr = window.devicePixelRatio || 1;
-  const W = driftCanvas.width, H = driftCanvas.height;
-  dCtx.clearRect(0, 0, W, H);
-  dCtx.strokeStyle = themeColor('--grid');
-  dCtx.lineWidth = 1;
-  dCtx.beginPath();
-  dCtx.moveTo(0, H / 2); dCtx.lineTo(W, H / 2);
-  dCtx.stroke();
-  if (DRIFT_HIST.filter(v => v !== 0).length < 2) return;
-  dCtx.beginPath();
-  const cp = themeColor('--cp');
-  dCtx.strokeStyle = cp;
-  dCtx.lineWidth = 1.5 * dpr;
-  dCtx.shadowColor = cp;
-  dCtx.shadowBlur = 5;
-  for (let i = 0; i < DRIFT_HIST.length; i++) {
-    const x = (i / DRIFT_HIST.length) * W;
-    const y = H / 2 - DRIFT_HIST[i] * H * 0.42;
-    i === 0 ? dCtx.moveTo(x, y) : dCtx.lineTo(x, y);
-  }
-  dCtx.stroke();
-  dCtx.shadowBlur = 0;
-}
-
 function renderLoop() {
   if (!isPlaying) return;
-
-  let phaseNorm;
-  if (phasingPaused) {
-    phaseNorm = frozenOffset;
-  } else {
-    phaseNorm = samplePhaseNorm();
-  }
-
-  DRIFT_HIST.push(Math.sin(phaseNorm * Math.PI * 2) * 0.5);
-  DRIFT_HIST.shift();
-
-  document.getElementById('phFill').style.width = (phaseNorm * 100).toFixed(1) + '%';
-  document.getElementById('phVal').textContent   = phaseNorm.toFixed(3);
-
-  resize();
-  drawWave();
-  drawDrift();
-
   updatePlayheads();
 
   animFrame = requestAnimationFrame(renderLoop);
@@ -464,8 +440,8 @@ function stopRender() {
   if (animFrame) cancelAnimationFrame(animFrame);
   animFrame = null;
   // Reset playheads
-  document.getElementById('ph1').style.left = '0%';
-  document.getElementById('ph2').style.left = '0%';
+  playheadPos = [0, 0];
+  drawCircle();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -538,8 +514,8 @@ function applyParam(param, value) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════════════════════
-window.addEventListener('resize', resize);
+window.addEventListener('resize', drawCircle);
 updateThemeBtn();
 updateRatio();
-setTimeout(resize, 100);
+setTimeout(drawCircle, 100);
 connectWS();
