@@ -49,10 +49,7 @@ Audio files are decoded in the browser and never uploaded anywhere.
 
 ## Sound credits
 
-| File | Source | License |
-|---|---|---|
-| `assets/3.wav` | [arpegio01_loop.wav](https://freesound.org/s/428857/) by supervanz | [Creative Commons 0](https://creativecommons.org/publicdomain/zero/1.0/) |
-| `assets/4.wav` | [Bitcrushed Melody Dry](https://freesound.org/s/404959/) by mahammed | [Creative Commons 0](https://creativecommons.org/publicdomain/zero/1.0/) |
+All sounds in `assets/` were produced by Gabriel Vigliensoni.
 
 ## References
 
