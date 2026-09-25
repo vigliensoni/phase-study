@@ -76,17 +76,10 @@ header {
   line-height: 2;
 }
 
-.ws-dot {
-  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--faint); margin-top: 6px; vertical-align: middle;
-  transition: background 0.4s;
-}
-.ws-dot.on { background: var(--accent); }
-
 .theme-btn {
   font-family: 'Space Mono', monospace; font-size: 0.77rem;
   letter-spacing: 0.15em; text-transform: uppercase;
-  padding: 0.3rem 0.6rem; margin-bottom: 0.6rem;
+  padding: 0.3rem 0.6rem;
   border: 1px solid var(--dim); background: none; color: var(--mid);
   cursor: pointer; transition: border-color 0.12s, color 0.12s;
 }

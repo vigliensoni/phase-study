@@ -13,10 +13,7 @@ This study makes that process visible and audible in real time: any audio file y
 ```
 index.html         Main HTML document
 style.css          All visual styling
-script.js          Audio engine, UI logic, and visualizations
-controller.html    Mobile touch controller (served via the Node server)
-server.js          Local HTTP + WebSocket relay server
-package.json       Node dependencies (ws)
+script.js          Audio engine, UI logic, and visualization
 ```
 
 ## Features
@@ -40,29 +37,15 @@ Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, c
 
 ## Usage
 
-### Without the server
+Live version: https://vigliensoni.github.io/phase-study/
 
-Open `index.html` directly in any modern browser. No build step required — the file loads `style.css` and `script.js` from the same directory. The WebSocket layer is skipped silently when the page is opened as a `file://` URL or from an HTTPS host such as GitHub Pages (the phone controller needs the local server).
-
-When the page is opened this way, some browsers block local audio decoding over `file://`; use the server instead.
-
-### With the server (enables phone controller)
-
-Requires Node.js.
+It's a static site with no build step or dependencies: `index.html` loads `style.css` and `script.js` from the same directory. To run it locally, open `index.html` in any modern browser. If your browser won't load audio files from a `file://` page, serve the folder instead:
 
 ```bash
-npm install   # first time only — installs the ws package
-npm start
+python3 -m http.server   # then open http://localhost:8000
 ```
 
-The terminal prints two URLs:
-
-```
-Desktop  →  http://localhost:3000
-Phone    →  http://192.168.x.x:3000/controller.html
-```
-
-Open the desktop URL in Chrome. On your Android phone (same WiFi network), open the phone URL in Chrome. The controller gives you touch sliders for all parameters and transport buttons that stay in sync with the desktop in real time. A small dot (●) in the desktop header turns green when a controller is linked.
+Audio files are decoded in the browser and never uploaded anywhere.
 
 ## References
 

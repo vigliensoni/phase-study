@@ -34,10 +34,6 @@ let startTime     = 0;
 
 let speedRatio = 1.002;
 
-// ── WebSocket ──
-let ws         = null;
-let wsUpdating = false; // true while applying a received param → suppress echo
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // SAMPLE STATE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -345,8 +341,6 @@ function togglePlay() {
     btn.textContent = '■   Stop';
     document.getElementById('statusTxt').textContent = 'RUNNING';
     document.getElementById('btnPhase').disabled = false;
-    sendParam('statusUpdate', 'RUNNING');
-    sendParam('playingUpdate', true);
     startRender();
   } else {
     stopSample();
@@ -359,8 +353,6 @@ function togglePlay() {
     ph.disabled = true;
     ph.classList.remove('paused');
     ph.textContent = '⏸   Pause phasing';
-    sendParam('statusUpdate', 'STOPPED');
-    sendParam('playingUpdate', false);
     stopRender();
   }
 }
@@ -376,7 +368,6 @@ function resetPhase() {
   stopSample();
   startSample();
   document.getElementById('statusTxt').textContent = 'RUNNING';
-  sendParam('statusUpdate', 'RUNNING');
 }
 
 function togglePhasing() {
@@ -390,14 +381,12 @@ function togglePhasing() {
     btn.textContent = '▶   Resume phasing';
     btn.classList.add('paused');
     document.getElementById('statusTxt').textContent = 'PHASE FROZEN';
-    sendParam('statusUpdate', 'PHASE FROZEN');
   } else {
     // Resume
     applySampleRate();
     btn.textContent = '⏸   Pause phasing';
     btn.classList.remove('paused');
     document.getElementById('statusTxt').textContent = 'RUNNING';
-    sendParam('statusUpdate', 'RUNNING');
   }
 }
 
@@ -411,14 +400,12 @@ function updateRatio() {
   if (isPlaying && !phasingPaused && sampleSources[1]) {
     setVoice2Rate(speedRatio);
   }
-  sendParam('ratio', speedRatio);
 }
 
 function updateVol() {
   const v = +document.getElementById('volCtrl').value;
   document.getElementById('volVal').textContent = v.toFixed(2);
   if (masterGain) masterGain.gain.value = v;
-  sendParam('volume', v);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -445,79 +432,9 @@ function stopRender() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// WEBSOCKET
-// ═══════════════════════════════════════════════════════════════════════════════
-// params whose updates must not be echoed back (slider sync)
-const WS_PARAM_ONLY = new Set(['ratio','volume']);
-
-function connectWS() {
-  // Only the local Node server (plain http) runs the relay; skip on file:// and
-  // https hosts like GitHub Pages, where ws:// would be blocked anyway.
-  if (location.protocol !== 'http:') return;
-  try {
-    ws = new WebSocket(`ws://${location.host}`);
-
-    ws.onopen  = () => setWSStatus(true);
-    ws.onclose = () => { setWSStatus(false); setTimeout(connectWS, 2000); };
-    ws.onerror = () => ws.close();
-
-    ws.onmessage = e => {
-      const msg = JSON.parse(e.data);
-      // State request: reply without setting wsUpdating so sendParam works
-      if (msg.param === 'requestState') { sendFullState(); return; }
-      // Param-only messages: suppress echo in the update functions
-      if (WS_PARAM_ONLY.has(msg.param)) {
-        wsUpdating = true;
-        applyParam(msg.param, msg.value);
-        wsUpdating = false;
-      } else {
-        // Commands (togglePlay, togglePhasing, resetPhase):
-        // run normally so they can broadcast status updates back
-        applyParam(msg.param, msg.value);
-      }
-    };
-  } catch(err) {
-    // silently ignore — WS is an optional enhancement
-  }
-}
-
-function sendParam(param, value) {
-  if (!ws || ws.readyState !== WebSocket.OPEN || wsUpdating) return;
-  ws.send(JSON.stringify(value !== undefined ? { param, value } : { param }));
-}
-
-function setWSStatus(connected) {
-  const dot = document.getElementById('wsDot');
-  if (dot) dot.classList.toggle('on', connected);
-}
-
-function sendFullState() {
-  sendParam('ratio',     speedRatio);
-  sendParam('volume',    +document.getElementById('volCtrl').value);
-  const status = !isPlaying ? 'STOPPED' : phasingPaused ? 'PHASE FROZEN' : 'RUNNING';
-  sendParam('statusUpdate',  status);
-  sendParam('playingUpdate', isPlaying);
-}
-
-function applyParam(param, value) {
-  switch (param) {
-    case 'ratio':
-      document.getElementById('ratioCtrl').value = value;
-      updateRatio(); break;
-    case 'volume':
-      document.getElementById('volCtrl').value = value;
-      updateVol(); break;
-    case 'togglePlay':   togglePlay();        break;
-    case 'resetPhase':   resetPhase();        break;
-    case 'togglePhasing': togglePhasing();    break;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════════════════════
 window.addEventListener('resize', drawCircle);
 updateThemeBtn();
 updateRatio();
 setTimeout(drawCircle, 100);
-connectWS();
