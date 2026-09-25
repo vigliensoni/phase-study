@@ -6,10 +6,7 @@ An interactive browser-based exploration of Steve Reich's phasing technique, ins
 
 *It's Gonna Rain* is a landmark work of early minimalism. Reich recorded a street preacher in San Francisco and discovered — by accident — that two tape loops of the same recording, played simultaneously on slightly out-of-sync machines, drifted apart and realigned in ways that produced hypnotic rhythmic and harmonic interference patterns. This became the defining technique of **phase music**: two identical loops, one running marginally faster than the other, continuously shifting in and out of alignment.
 
-This study makes that process visible and audible in real time, with two modes:
-
-- **Symbolic melody** — a user-editable step sequencer rendered via additive sine synthesis, with Voice I and Voice II running at a controllable speed ratio
-- **Audio sample** — any audio file you drop in is looped in both channels simultaneously, with Voice II playing at a slightly higher playback rate
+This study makes that process visible and audible in real time: any audio file you drop in is looped in both channels simultaneously, with Voice II playing at a slightly higher playback rate.
 
 ## Files
 
@@ -25,16 +22,9 @@ package.json       Node dependencies (ws)
 ## Features
 
 ### Two voices, one loop
-Both voices play the same melody (or sample). Voice II runs at a ratio slightly above 1.0, causing it to drift ahead of Voice I over time. The offset accumulates until the voices realign — completing a full phase cycle.
+Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, causing it to drift ahead of Voice I over time. The offset accumulates until the voices realign — completing a full phase cycle.
 
-### Symbolic mode
-- Editable piano roll (A3–E5, 20 pitches)
-- 4–16 configurable steps
-- Additive sine synthesis with up to 12 harmonics per note
-- Adjustable note duration and tempo (BPM)
-- Three presets: **Rain** (from *It's Gonna Rain*), **Piano Phase**, **Pentatonic**
-
-### Sample mode
+### Audio sample
 - Drop or browse any WAV / MP3 / OGG file
 - Waveform thumbnail with dual playhead display
 - Phase offset computed from elapsed time and playback rate ratio
@@ -59,7 +49,7 @@ Both voices play the same melody (or sample). Voice II runs at a ratio slightly 
 
 Open `reich-phase.html` directly in any modern browser. No build step required — the file loads `style.css` and `script.js` from the same directory. The WebSocket layer is skipped silently when the page is opened as a `file://` URL.
 
-For sample mode opened this way, some browsers block local audio decoding over `file://`; use the server instead.
+When the page is opened this way, some browsers block local audio decoding over `file://`; use the server instead.
 
 ### With the server (enables phone controller)
 

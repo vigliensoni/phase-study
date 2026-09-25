@@ -4,17 +4,37 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Phase Controller</title>
+<script>
+  // Apply saved theme before first paint (light is the default)
+  try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
+  /* Light theme (default) */
   :root {
+    --bg: #f5f3ee;
+    --fg: #1a1a1a;
+    --accent: #4d7a00;
+    --dim: #d3cec3;
+    --mid: #66645e;
+    --faint: #9a978f;
+    --c2: #d9480f;
+    --cp: #0077a8;
+    --on-accent: #ffffff;
+  }
+
+  /* Dark theme */
+  :root[data-theme="dark"] {
     --bg: #0a0a0a;
     --fg: #e8e4d9;
     --accent: #c8ff00;
     --dim: #2a2a2a;
     --mid: #666;
+    --faint: #333;
     --c2: #ff6b35;
     --cp: #00d4ff;
+    --on-accent: #0a0a0a;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -40,7 +60,7 @@
   }
 
   .hdr-title {
-    font-size: 0.6rem;
+    font-size: 1.05rem;
     letter-spacing: 0.3em;
     text-transform: uppercase;
   }
@@ -49,7 +69,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.42rem;
+    font-size: 0.73rem;
     letter-spacing: 0.12em;
     color: var(--mid);
     text-transform: uppercase;
@@ -58,16 +78,29 @@
   .ws-dot {
     width: 8px; height: 8px;
     border-radius: 50%;
-    background: #333;
+    background: var(--faint);
     transition: background 0.4s;
   }
   .ws-dot.on { background: var(--accent); }
+
+  .theme-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.73rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--dim);
+    background: none;
+    color: var(--mid);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
 
   /* ── Status bar ── */
   .status-bar {
     padding: 0.55rem 1.2rem;
     border-bottom: 1px solid var(--dim);
-    font-size: 0.44rem;
+    font-size: 0.77rem;
     letter-spacing: 0.2em;
     color: var(--mid);
     text-transform: uppercase;
@@ -81,7 +114,7 @@
   }
 
   .section-title {
-    font-size: 0.42rem;
+    font-size: 0.73rem;
     letter-spacing: 0.25em;
     color: var(--dim);
     text-transform: uppercase;
@@ -93,7 +126,7 @@
 
   .btn {
     font-family: 'Space Mono', monospace;
-    font-size: 0.65rem;
+    font-size: 1.14rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
     padding: 1rem 1rem;
@@ -106,32 +139,10 @@
   }
 
   .btn-play  { border-color: var(--accent); color: var(--accent); }
-  .btn-play.on { background: var(--accent); color: var(--bg); }
+  .btn-play.on { background: var(--accent); color: var(--on-accent); }
   .btn-phase { border-color: var(--cp); color: var(--cp); }
-  .btn-phase.paused { background: var(--cp); color: var(--bg); }
+  .btn-phase.paused { background: var(--cp); color: var(--on-accent); }
   .btn-reset { border-color: var(--dim); color: var(--mid); }
-
-  /* ── Preset grid ── */
-  .preset-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.4rem;
-  }
-
-  .preset-btn {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.5rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 0.8rem 0.2rem;
-    border: 1px solid var(--dim);
-    background: none;
-    color: var(--mid);
-    cursor: pointer;
-    touch-action: manipulation;
-    transition: border-color 0.1s, color 0.1s;
-  }
-  .preset-btn:active { border-color: var(--accent); color: var(--accent); }
 
   /* ── Sliders ── */
   .ctrl-group { display: flex; flex-direction: column; gap: 1.6rem; }
@@ -145,14 +156,14 @@
   }
 
   .ctrl-name {
-    font-size: 0.46rem;
+    font-size: 0.81rem;
     letter-spacing: 0.1em;
     color: var(--mid);
     text-transform: uppercase;
   }
 
   .ctrl-val {
-    font-size: 0.75rem;
+    font-size: 1.31rem;
     color: var(--fg);
     font-variant-numeric: tabular-nums;
   }
@@ -183,6 +194,7 @@
 <div class="hdr">
   <div class="hdr-title">Phase Controller</div>
   <div class="ws-badge">
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">◐ Dark</button>
     <div class="ws-dot" id="wsDot"></div>
     Link
   </div>
@@ -197,63 +209,6 @@
     <button class="btn btn-play"  id="btnPlay"  onclick="send('togglePlay')">▶ &nbsp;Start</button>
     <button class="btn btn-phase" id="btnPhase" onclick="send('togglePhasing')">⏸ &nbsp;Pause phasing</button>
     <button class="btn btn-reset"               onclick="send('resetPhase')">↺ &nbsp;Sync voices</button>
-  </div>
-</div>
-
-<!-- Presets -->
-<div class="section">
-  <div class="section-title">Presets</div>
-  <div class="preset-grid">
-    <button class="preset-btn" onclick="send('loadPreset','rain')">Rain</button>
-    <button class="preset-btn" onclick="send('loadPreset','piano')">Piano</button>
-    <button class="preset-btn" onclick="send('loadPreset','pentatonic')">Penta</button>
-    <button class="preset-btn" onclick="send('loadPreset','clear')">Clear</button>
-  </div>
-</div>
-
-<!-- Melody -->
-<div class="section">
-  <div class="section-title">Melody</div>
-  <div class="ctrl-group">
-    <div class="ctrl">
-      <div class="ctrl-hd">
-        <span class="ctrl-name">Steps</span>
-        <span class="ctrl-val" id="stepsVal">12</span>
-      </div>
-      <input type="range" id="stepsCtrl" min="4" max="16" step="1" value="12"
-        oninput="slide('steps', +this.value, 'stepsVal', v => v)">
-    </div>
-    <div class="ctrl">
-      <div class="ctrl-hd">
-        <span class="ctrl-name">Tempo BPM</span>
-        <span class="ctrl-val" id="tempoVal">132</span>
-      </div>
-      <input type="range" id="tempoCtrl" min="40" max="300" step="1" value="132"
-        oninput="slide('tempo', +this.value, 'tempoVal', v => v)">
-    </div>
-  </div>
-</div>
-
-<!-- Synthesis -->
-<div class="section">
-  <div class="section-title">Synthesis</div>
-  <div class="ctrl-group">
-    <div class="ctrl">
-      <div class="ctrl-hd">
-        <span class="ctrl-name">Harmonics</span>
-        <span class="ctrl-val" id="harmVal">5</span>
-      </div>
-      <input type="range" id="harmCtrl" min="1" max="12" step="1" value="5"
-        oninput="slide('harmonics', +this.value, 'harmVal', v => v)">
-    </div>
-    <div class="ctrl">
-      <div class="ctrl-hd">
-        <span class="ctrl-name">Note Duration</span>
-        <span class="ctrl-val" id="durVal">80 ms</span>
-      </div>
-      <input type="range" id="durCtrl" min="20" max="400" step="5" value="80"
-        oninput="slide('noteDur', +this.value, 'durVal', v => v + ' ms')">
-    </div>
   </div>
 </div>
 
@@ -331,12 +286,8 @@ function applyToUI(param, value) {
   };
 
   switch (param) {
-    case 'harmonics': setSlider('harmCtrl',  'harmVal',  v => v);                    break;
-    case 'noteDur':   setSlider('durCtrl',   'durVal',   v => v + ' ms');            break;
-    case 'tempo':     setSlider('tempoCtrl', 'tempoVal', v => v);                    break;
     case 'ratio':     setSlider('ratioCtrl', 'ratioVal', v => (+v).toFixed(4));      break;
     case 'volume':    setSlider('volCtrl',   'volVal',   v => (+v).toFixed(2));      break;
-    case 'steps':     setSlider('stepsCtrl', 'stepsVal', v => v);                    break;
 
     case 'statusUpdate': {
       document.getElementById('statusTxt').textContent = value;
@@ -356,6 +307,20 @@ function applyToUI(param, value) {
   }
 }
 
+function toggleTheme() {
+  const dark = document.documentElement.dataset.theme !== 'dark';
+  if (dark) document.documentElement.dataset.theme = 'dark';
+  else      delete document.documentElement.dataset.theme;
+  try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
+  updateThemeBtn();
+}
+
+function updateThemeBtn() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  document.getElementById('themeBtn').textContent = dark ? '◐ Light' : '◐ Dark';
+}
+
+updateThemeBtn();
 connect();
 </script>
 </body>

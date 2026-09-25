@@ -1,50 +1,24 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// MODE
+// THEME
 // ═══════════════════════════════════════════════════════════════════════════════
-let currentMode = 'symbolic'; // 'symbolic' | 'sample'
-
-function setMode(mode) {
-  if (isPlaying) togglePlay(); // stop before switching
-  currentMode = mode;
-  const body = document.getElementById('mainBody');
-  body.classList.toggle('mode-sample', mode === 'sample');
-  document.getElementById('sampleSection').classList.toggle('visible', mode === 'sample');
-  document.getElementById('tabSymbolic').classList.toggle('active', mode === 'symbolic');
-  document.getElementById('tabSample').classList.toggle('active', mode === 'sample');
+function themeColor(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// PITCH TABLE + PRESETS
-// ═══════════════════════════════════════════════════════════════════════════════
-const PITCHES = [
-  { name: 'E5',  freq: 659.26, black: false },
-  { name: 'D#5', freq: 622.25, black: true  },
-  { name: 'D5',  freq: 587.33, black: false },
-  { name: 'C#5', freq: 554.37, black: true  },
-  { name: 'C5',  freq: 523.25, black: false },
-  { name: 'B4',  freq: 493.88, black: false },
-  { name: 'A#4', freq: 466.16, black: true  },
-  { name: 'A4',  freq: 440.00, black: false },
-  { name: 'G#4', freq: 415.30, black: true  },
-  { name: 'G4',  freq: 392.00, black: false },
-  { name: 'F#4', freq: 369.99, black: true  },
-  { name: 'F4',  freq: 349.23, black: false },
-  { name: 'E4',  freq: 329.63, black: false },
-  { name: 'D#4', freq: 311.13, black: true  },
-  { name: 'D4',  freq: 293.66, black: false },
-  { name: 'C#4', freq: 277.18, black: true  },
-  { name: 'C4',  freq: 261.63, black: false },
-  { name: 'B3',  freq: 246.94, black: false },
-  { name: 'A#3', freq: 233.08, black: true  },
-  { name: 'A3',  freq: 220.00, black: false },
-];
+function toggleTheme() {
+  const dark = document.documentElement.dataset.theme !== 'dark';
+  if (dark) document.documentElement.dataset.theme = 'dark';
+  else      delete document.documentElement.dataset.theme;
+  try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
+  updateThemeBtn();
+  drawSampleThumb();
+  drawDrift();
+}
 
-const PRESETS = {
-  rain:       ['E4','F#4','B4','C#5',null,'A4',null,'F#4','E4',null,'D4','A3'],
-  piano:      ['E4','F#4','B4','C#5','D5',null,'F#4',null,'E4','B4','A4',null],
-  pentatonic: ['E5','C#5','A4','G#4',null,'E4','F#4',null,'B4',null,'A4',null],
-  clear:      [],
-};
+function updateThemeBtn() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  document.getElementById('themeBtn').textContent = dark ? '◐   Light' : '◐   Dark';
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SHARED STATE
@@ -67,20 +41,6 @@ let speedRatio = 1.002;
 // ── WebSocket ──
 let ws         = null;
 let wsUpdating = false; // true while applying a received param → suppress echo
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SYMBOLIC STATE
-// ═══════════════════════════════════════════════════════════════════════════════
-let MELODY = [];
-let STEPS  = 12;
-let baseBPM = 132;
-let numHarm = 5;
-let noteDur = 0.08;
-
-let schedulerTimer = null;
-const V = [{ step: 0, nextTime: 0 }, { step: 0, nextTime: 0 }];
-const LOOKAHEAD = 0.1;
-const INTERVAL  = 25;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SAMPLE STATE
@@ -107,149 +67,6 @@ function initAudio() {
   panners[1].pan.value =  1;
   panners[0].connect(masterGain);
   panners[1].connect(masterGain);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SYMBOLIC — PIANO ROLL + SCHEDULER
-// ═══════════════════════════════════════════════════════════════════════════════
-function buildPianoRoll() {
-  const roll = document.getElementById('pianoRoll');
-  roll.innerHTML = '';
-  PITCHES.forEach((pitch, pi) => {
-    const row = document.createElement('div');
-    row.className = 'pr-row';
-    const lbl = document.createElement('div');
-    lbl.className = 'pr-pitch-label' + (pitch.black ? ' black-key' : '');
-    lbl.textContent = pitch.name;
-    row.appendChild(lbl);
-    const cells = document.createElement('div');
-    cells.className = 'pr-cells';
-    for (let si = 0; si < STEPS; si++) {
-      const cell = document.createElement('div');
-      cell.className = 'pr-cell' + (pitch.black ? ' black-key-row' : '');
-      cell.id = `prc_${pi}_${si}`;
-      if (MELODY[si] && MELODY[si].name === pitch.name) cell.classList.add('selected');
-      cell.addEventListener('click', () => toggleCell(pi, si));
-      cells.appendChild(cell);
-    }
-    row.appendChild(cells);
-    roll.appendChild(row);
-  });
-}
-
-function toggleCell(pitchIdx, stepIdx) {
-  const pitch = PITCHES[pitchIdx];
-  MELODY[stepIdx] = (MELODY[stepIdx] && MELODY[stepIdx].name === pitch.name)
-    ? null
-    : { freq: pitch.freq, name: pitch.name };
-  refreshRollStep(stepIdx);
-  buildScoreUI();
-}
-
-function refreshRollStep(si) {
-  PITCHES.forEach((_, pi) => {
-    const cell = document.getElementById(`prc_${pi}_${si}`);
-    if (!cell) return;
-    cell.classList.toggle('selected', !!(MELODY[si] && MELODY[si].name === PITCHES[pi].name));
-  });
-}
-
-function resizeMelody() {
-  const n = +document.getElementById('stepsCtrl').value;
-  document.getElementById('stepsVal').textContent = n;
-  while (MELODY.length < n) MELODY.push(null);
-  MELODY = MELODY.slice(0, n);
-  STEPS = n;
-  buildPianoRoll();
-  buildScoreUI();
-  sendParam('steps', n);
-}
-
-function loadPreset(name) {
-  const preset = PRESETS[name] || [];
-  STEPS = +document.getElementById('stepsCtrl').value;
-  MELODY = Array.from({ length: STEPS }, (_, i) => {
-    const pname = preset[i] || null;
-    if (!pname) return null;
-    const p = PITCHES.find(p => p.name === pname);
-    return p ? { freq: p.freq, name: p.name } : null;
-  });
-  buildPianoRoll();
-  buildScoreUI();
-}
-
-function buildScoreUI() {
-  ['steps1','steps2'].forEach(id => {
-    document.getElementById(id).innerHTML = MELODY.map((note, i) =>
-      `<div class="step${note?' has-note':''}" id="${id}_${i}">
-         <span class="nlabel">${note ? note.name.replace(/[0-9]/g,'') : '·'}</span>
-       </div>`
-    ).join('');
-  });
-}
-
-function updateScoreUI() {
-  const s1 = V[0].step % STEPS;
-  const s2 = V[1].step % STEPS;
-  for (let i = 0; i < STEPS; i++) {
-    const e1 = document.getElementById(`steps1_${i}`);
-    const e2 = document.getElementById(`steps2_${i}`);
-    if (!e1 || !e2) continue;
-    const base = MELODY[i] ? 'step has-note' : 'step';
-    e1.className = base + (i === s1 ? ' active1' : '');
-    e2.className = base + (i === s2 ? ' active2' : '');
-  }
-}
-
-function playNote(freq, time, voiceIdx) {
-  const totalAmp = 0.3 / numHarm;
-  const dest = panners[voiceIdx] || masterGain;
-  for (let h = 1; h <= numHarm; h++) {
-    const osc = audioCtx.createOscillator();
-    const g   = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = freq * h;
-    const amp = totalAmp / h;
-    g.gain.setValueAtTime(0, time);
-    g.gain.linearRampToValueAtTime(amp, time + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.00001, time + noteDur);
-    osc.connect(g);
-    g.connect(dest);
-    osc.start(time);
-    osc.stop(time + noteDur + 0.02);
-  }
-}
-
-function symbolicStepDur(voiceIdx) {
-  const base = 60 / baseBPM / 4;
-  if (phasingPaused) return base;
-  return voiceIdx === 0 ? base : base / speedRatio;
-}
-
-function scheduler() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-  for (let v = 0; v < 2; v++) {
-    while (V[v].nextTime < now + LOOKAHEAD) {
-      const note = MELODY[V[v].step % STEPS];
-      if (note) playNote(note.freq, V[v].nextTime, v);
-      V[v].step++;
-      V[v].nextTime += symbolicStepDur(v);
-    }
-  }
-}
-
-function startSymbolic() {
-  const t = audioCtx.currentTime + 0.05;
-  startTime = t;
-  V[0].step = V[1].step = 0;
-  V[0].nextTime = V[1].nextTime = t;
-  schedulerTimer = setInterval(scheduler, INTERVAL);
-}
-
-function stopSymbolic() {
-  clearInterval(schedulerTimer);
-  schedulerTimer = null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -301,7 +118,8 @@ function drawSampleThumb() {
   const step = Math.ceil(data.length / W);
 
   ctx2.clearRect(0, 0, W, H);
-  ctx2.strokeStyle = '#c8ff0066';
+  ctx2.strokeStyle = themeColor('--c1');
+  ctx2.globalAlpha = 0.4;
   ctx2.lineWidth = 1;
   ctx2.beginPath();
   for (let x = 0; x < W; x++) {
@@ -315,6 +133,7 @@ function drawSampleThumb() {
     ctx2.lineTo(x, H / 2 + h / 2);
   }
   ctx2.stroke();
+  ctx2.globalAlpha = 1;
 }
 
 function startSample() {
@@ -343,14 +162,14 @@ function stopSample() {
   });
 }
 
-// When phasing is paused in sample mode: set voice II playbackRate back to 1.0
+// When phasing is paused: set voice II playbackRate back to 1.0
 // When resumed: restore speedRatio
 function applySampleRate() {
   if (!sampleSources[1]) return;
   sampleSources[1].playbackRate.value = phasingPaused ? 1.0 : speedRatio;
 }
 
-// Estimate phase offset for sample mode:
+// Estimate phase offset:
 // Both sources started at the same time. Voice II has played
 // elapsed * speedRatio seconds of sample time vs elapsed * 1.0 for voice I.
 // Offset in sample-time = elapsed * (speedRatio - 1).
@@ -381,8 +200,8 @@ function togglePlay() {
   if (!audioCtx) initAudio();
   if (audioCtx.state === 'suspended') audioCtx.resume();
 
-  // Guard: sample mode requires a loaded buffer
-  if (currentMode === 'sample' && !sampleBuffer) {
+  // Guard: requires a loaded buffer
+  if (!sampleBuffer) {
     alert('Load an audio file first.');
     return;
   }
@@ -391,8 +210,7 @@ function togglePlay() {
   const btn = document.getElementById('btnPlay');
 
   if (isPlaying) {
-    if (currentMode === 'symbolic') startSymbolic();
-    else                            startSample();
+    startSample();
 
     btn.classList.add('on');
     btn.textContent = '■   Stop';
@@ -402,8 +220,7 @@ function togglePlay() {
     sendParam('playingUpdate', true);
     startRender();
   } else {
-    if (currentMode === 'symbolic') stopSymbolic();
-    else                            stopSample();
+    stopSample();
 
     btn.classList.remove('on');
     btn.textContent = '▶   Start';
@@ -427,16 +244,9 @@ function resetPhase() {
   ph.classList.remove('paused');
   ph.textContent = '⏸   Pause phasing';
 
-  if (currentMode === 'symbolic') {
-    const now = audioCtx.currentTime + 0.05;
-    V[0].step = V[1].step = 0;
-    V[0].nextTime = V[1].nextTime = now;
-    startTime = now;
-  } else {
-    // Restart both sample sources in sync
-    stopSample();
-    startSample();
-  }
+  // Restart both sample sources in sync
+  stopSample();
+  startSample();
   DRIFT_HIST.fill(0);
   document.getElementById('statusTxt').textContent = 'RUNNING';
   sendParam('statusUpdate', 'RUNNING');
@@ -447,16 +257,9 @@ function togglePhasing() {
   const btn = document.getElementById('btnPhase');
 
   if (phasingPaused) {
-    // Snapshot current phase for display
-    if (currentMode === 'symbolic') {
-      const elapsed = audioCtx.currentTime - startTime;
-      const base = 60 / baseBPM / 4;
-      frozenOffset = ((elapsed / (base / speedRatio) - elapsed / base) % STEPS) / STEPS;
-    } else {
-      frozenOffset = samplePhaseNorm();
-    }
-    // Sample mode: freeze voice II rate
-    if (currentMode === 'sample') applySampleRate();
+    // Snapshot current phase for display, then freeze voice II rate
+    frozenOffset = samplePhaseNorm();
+    applySampleRate();
 
     btn.textContent = '▶   Resume phasing';
     btn.classList.add('paused');
@@ -464,15 +267,7 @@ function togglePhasing() {
     sendParam('statusUpdate', 'PHASE FROZEN');
   } else {
     // Resume
-    if (currentMode === 'symbolic') {
-      // Rebase startTime from current voice positions
-      const now = audioCtx.currentTime;
-      const base = 60 / baseBPM / 4;
-      const stepsV0 = V[0].step - (V[0].nextTime - now) / base;
-      startTime = now - stepsV0 * base;
-    } else {
-      applySampleRate();
-    }
+    applySampleRate();
     btn.textContent = '⏸   Pause phasing';
     btn.classList.remove('paused');
     document.getElementById('statusTxt').textContent = 'RUNNING';
@@ -483,20 +278,11 @@ function togglePhasing() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PARAM UPDATES
 // ═══════════════════════════════════════════════════════════════════════════════
-function updateSynth() {
-  numHarm = +document.getElementById('harmCtrl').value;
-  noteDur = +document.getElementById('durCtrl').value / 1000;
-  document.getElementById('harmVal').textContent = numHarm;
-  document.getElementById('durVal').textContent  = Math.round(noteDur * 1000) + ' ms';
-  sendParam('harmonics', numHarm);
-  sendParam('noteDur', Math.round(noteDur * 1000));
-}
-
 function updateRatio() {
   speedRatio = +document.getElementById('ratioCtrl').value;
   document.getElementById('ratioVal').textContent = speedRatio.toFixed(4);
   // Live-update sample source if playing
-  if (currentMode === 'sample' && isPlaying && !phasingPaused && sampleSources[1]) {
+  if (isPlaying && !phasingPaused && sampleSources[1]) {
     sampleSources[1].playbackRate.value = speedRatio;
   }
   sendParam('ratio', speedRatio);
@@ -507,12 +293,6 @@ function updateVol() {
   document.getElementById('volVal').textContent = v.toFixed(2);
   if (masterGain) masterGain.gain.value = v;
   sendParam('volume', v);
-}
-
-function updateTempo() {
-  baseBPM = +document.getElementById('tempoCtrl').value;
-  document.getElementById('tempoVal').textContent = baseBPM;
-  sendParam('tempo', baseBPM);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -539,7 +319,7 @@ function drawWave() {
   const buf = new Float32Array(analyser.fftSize);
   analyser.getFloatTimeDomainData(buf);
   wCtx.clearRect(0, 0, W, H);
-  wCtx.strokeStyle = '#c8ff00';
+  wCtx.strokeStyle = themeColor('--c1');
   wCtx.lineWidth = 1.5 * dpr;
   wCtx.globalAlpha = 0.85;
   wCtx.beginPath();
@@ -556,16 +336,17 @@ function drawDrift() {
   const dpr = window.devicePixelRatio || 1;
   const W = driftCanvas.width, H = driftCanvas.height;
   dCtx.clearRect(0, 0, W, H);
-  dCtx.strokeStyle = '#1e1e1e';
+  dCtx.strokeStyle = themeColor('--grid');
   dCtx.lineWidth = 1;
   dCtx.beginPath();
   dCtx.moveTo(0, H / 2); dCtx.lineTo(W, H / 2);
   dCtx.stroke();
   if (DRIFT_HIST.filter(v => v !== 0).length < 2) return;
   dCtx.beginPath();
-  dCtx.strokeStyle = '#00d4ff';
+  const cp = themeColor('--cp');
+  dCtx.strokeStyle = cp;
   dCtx.lineWidth = 1.5 * dpr;
-  dCtx.shadowColor = '#00d4ff';
+  dCtx.shadowColor = cp;
   dCtx.shadowBlur = 5;
   for (let i = 0; i < DRIFT_HIST.length; i++) {
     const x = (i / DRIFT_HIST.length) * W;
@@ -582,11 +363,6 @@ function renderLoop() {
   let phaseNorm;
   if (phasingPaused) {
     phaseNorm = frozenOffset;
-  } else if (currentMode === 'symbolic') {
-    const elapsed = audioCtx.currentTime - startTime;
-    const base = 60 / baseBPM / 4;
-    const rawOffset = elapsed / (base / speedRatio) - elapsed / base;
-    phaseNorm = (rawOffset % STEPS) / STEPS;
   } else {
     phaseNorm = samplePhaseNorm();
   }
@@ -601,8 +377,7 @@ function renderLoop() {
   drawWave();
   drawDrift();
 
-  if (currentMode === 'symbolic') updateScoreUI();
-  else updatePlayheads();
+  updatePlayheads();
 
   animFrame = requestAnimationFrame(renderLoop);
 }
@@ -615,13 +390,6 @@ function startRender() {
 function stopRender() {
   if (animFrame) cancelAnimationFrame(animFrame);
   animFrame = null;
-  // Clear score
-  for (let i = 0; i < STEPS; i++) {
-    ['steps1','steps2'].forEach(id => {
-      const e = document.getElementById(`${id}_${i}`);
-      if (e) e.className = MELODY[i] ? 'step has-note' : 'step';
-    });
-  }
   // Reset playheads
   document.getElementById('ph1').style.left = '0%';
   document.getElementById('ph2').style.left = '0%';
@@ -631,7 +399,7 @@ function stopRender() {
 // WEBSOCKET
 // ═══════════════════════════════════════════════════════════════════════════════
 // params whose updates must not be echoed back (slider sync)
-const WS_PARAM_ONLY = new Set(['harmonics','noteDur','tempo','ratio','volume','steps']);
+const WS_PARAM_ONLY = new Set(['ratio','volume']);
 
 function connectWS() {
   if (location.protocol === 'file:') return; // opened directly, not via server
@@ -652,7 +420,7 @@ function connectWS() {
         applyParam(msg.param, msg.value);
         wsUpdating = false;
       } else {
-        // Commands (togglePlay, togglePhasing, resetPhase, loadPreset):
+        // Commands (togglePlay, togglePhasing, resetPhase):
         // run normally so they can broadcast status updates back
         applyParam(msg.param, msg.value);
       }
@@ -669,16 +437,12 @@ function sendParam(param, value) {
 
 function setWSStatus(connected) {
   const dot = document.getElementById('wsDot');
-  if (dot) dot.style.background = connected ? '#c8ff00' : '#333';
+  if (dot) dot.classList.toggle('on', connected);
 }
 
 function sendFullState() {
-  sendParam('harmonics', numHarm);
-  sendParam('noteDur',   Math.round(noteDur * 1000));
-  sendParam('tempo',     baseBPM);
   sendParam('ratio',     speedRatio);
   sendParam('volume',    +document.getElementById('volCtrl').value);
-  sendParam('steps',     STEPS);
   const status = !isPlaying ? 'STOPPED' : phasingPaused ? 'PHASE FROZEN' : 'RUNNING';
   sendParam('statusUpdate',  status);
   sendParam('playingUpdate', isPlaying);
@@ -686,25 +450,12 @@ function sendFullState() {
 
 function applyParam(param, value) {
   switch (param) {
-    case 'harmonics':
-      document.getElementById('harmCtrl').value = value;
-      updateSynth(); break;
-    case 'noteDur':
-      document.getElementById('durCtrl').value = value;
-      updateSynth(); break;
-    case 'tempo':
-      document.getElementById('tempoCtrl').value = value;
-      updateTempo(); break;
     case 'ratio':
       document.getElementById('ratioCtrl').value = value;
       updateRatio(); break;
     case 'volume':
       document.getElementById('volCtrl').value = value;
       updateVol(); break;
-    case 'steps':
-      document.getElementById('stepsCtrl').value = value;
-      resizeMelody(); break;
-    case 'loadPreset':   loadPreset(value);   break;
     case 'togglePlay':   togglePlay();        break;
     case 'resetPhase':   resetPhase();        break;
     case 'togglePhasing': togglePhasing();    break;
@@ -715,9 +466,7 @@ function applyParam(param, value) {
 // BOOT
 // ═══════════════════════════════════════════════════════════════════════════════
 window.addEventListener('resize', resize);
-updateSynth();
+updateThemeBtn();
 updateRatio();
-updateTempo();
-loadPreset('rain');
 setTimeout(resize, 100);
 connectWS();
