@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT'S GONNA RAIN — Reich Phase</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <h1>It's Gonna Rain</h1>
+    <h2>Phase Study · Steve Reich (1965) · Additive Sine Synthesis + Sample</h2>
+  </div>
+  <div class="meta">TWO IDENTICAL<br>LOOPS · ONE<br>FASTER<br>
+    <span id="wsDot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#333;margin-top:6px;vertical-align:middle;transition:background 0.4s"></span>
+    <span style="font-size:0.38rem;letter-spacing:0.1em;color:#333"> WS</span>
+  </div>
+</header>
+
+<!-- Mode switcher -->
+<div class="mode-bar">
+  <button class="mode-tab active" id="tabSymbolic" onclick="setMode('symbolic')">⊞ &nbsp;Symbolic melody</button>
+  <button class="mode-tab"        id="tabSample"   onclick="setMode('sample')">◈ &nbsp;Audio sample</button>
+</div>
+
+<div class="body" id="mainBody">
+  <div class="left">
+
+    <!-- Score (symbolic only) -->
+    <div class="score-section symbolic-only">
+      <div class="section-label">Melody — identical in both voices</div>
+      <div class="score-grid">
+        <div class="score-row">
+          <div class="vl v1">Voice I</div>
+          <div class="steps" id="steps1"></div>
+        </div>
+        <div class="score-row">
+          <div class="vl v2">Voice II</div>
+          <div class="steps" id="steps2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Piano roll (symbolic only) -->
+    <div class="editor-section symbolic-only">
+      <div class="editor-label-row">
+        <div class="section-label" style="margin-bottom:0">Edit melody</div>
+        <div class="preset-btns">
+          <button class="preset-btn" onclick="loadPreset('rain')">Rain</button>
+          <button class="preset-btn" onclick="loadPreset('piano')">Piano Phase</button>
+          <button class="preset-btn" onclick="loadPreset('pentatonic')">Penta</button>
+          <button class="preset-btn" onclick="loadPreset('clear')">Clear</button>
+        </div>
+      </div>
+      <div class="piano-roll" id="pianoRoll"></div>
+    </div>
+
+    <!-- Sample panel (sample only) -->
+    <div class="sample-section" id="sampleSection">
+      <div class="section-label" style="margin-bottom:0">Audio sample — looped in both channels</div>
+
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept="audio/*" onchange="loadFile(this.files[0])">
+        <div class="drop-zone-text">
+          <strong>Drop audio file here</strong>
+          or click to browse · WAV / MP3 / OGG
+        </div>
+      </div>
+
+      <div class="sample-info" id="sampleInfo">
+        File: <span id="sampleName">—</span> &nbsp;·&nbsp;
+        Duration: <span id="sampleDur">—</span>
+      </div>
+
+      <canvas id="sampleWaveThumb"></canvas>
+
+      <div class="playhead-row">
+        <div class="playhead-label">
+          <span style="color:var(--c1)">▌</span> Voice I &nbsp;·&nbsp;
+          <span style="color:var(--c2)">▌</span> Voice II — playhead positions
+        </div>
+        <div class="playhead-track">
+          <div class="playhead-v1" id="ph1" style="left:0%"></div>
+          <div class="playhead-v2" id="ph2" style="left:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Waveform -->
+    <div class="wave-section">
+      <div class="section-label">Composite waveform</div>
+      <div class="canvas-wrap">
+        <canvas id="waveCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Phase -->
+    <div class="phase-section">
+      <div class="section-label">Phase displacement</div>
+      <div class="phase-row">
+        <div class="prl">Offset</div>
+        <div class="ph-bar"><div class="ph-fill" id="phFill"></div></div>
+        <div class="ph-val" id="phVal">0.000</div>
+      </div>
+      <canvas id="driftCanvas"></canvas>
+    </div>
+
+  </div>
+
+  <div class="right">
+
+    <div>
+      <div class="ctrl-title">Transport</div>
+      <button class="btn btn-play"  id="btnPlay"  onclick="togglePlay()">▶ &nbsp;Start</button>
+      <button class="btn btn-phase" id="btnPhase" onclick="togglePhasing()" disabled>⏸ &nbsp;Pause phasing</button>
+      <button class="btn btn-reset" onclick="resetPhase()">↺ &nbsp;Sync voices</button>
+      <div class="status">STATUS: <span id="statusTxt">STOPPED</span></div>
+    </div>
+
+    <!-- Symbolic controls -->
+    <div class="symbolic-only">
+      <div class="ctrl-title">Melody</div>
+      <div class="ctrl-group">
+        <div class="ctrl-row">
+          <div class="ctrl-hd">
+            <span class="cn">Steps</span>
+            <span class="cv" id="stepsVal">12</span>
+          </div>
+          <input type="range" id="stepsCtrl" min="4" max="16" step="1" value="12"
+            oninput="resizeMelody()">
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-hd">
+            <span class="cn">Tempo (BPM)</span>
+            <span class="cv" id="tempoVal">132</span>
+          </div>
+          <input type="range" id="tempoCtrl" min="40" max="300" step="1" value="132"
+            oninput="updateTempo()">
+        </div>
+      </div>
+    </div>
+
+    <div class="symbolic-only">
+      <div class="ctrl-title">Synthesis</div>
+      <div class="ctrl-group">
+        <div class="ctrl-row">
+          <div class="ctrl-hd">
+            <span class="cn">Harmonics</span>
+            <span class="cv" id="harmVal">5</span>
+          </div>
+          <input type="range" id="harmCtrl" min="1" max="12" step="1" value="5"
+            oninput="updateSynth()">
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-hd">
+            <span class="cn">Note dur.</span>
+            <span class="cv" id="durVal">80 ms</span>
+          </div>
+          <input type="range" id="durCtrl" min="20" max="400" step="5" value="80"
+            oninput="updateSynth()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase speed (both modes) -->
+    <div>
+      <div class="ctrl-title">Voice II — Speed</div>
+      <div class="ctrl-group">
+        <div class="ctrl-row">
+          <div class="ctrl-hd">
+            <span class="cn">Ratio</span>
+            <span class="cv" id="ratioVal">1.0020</span>
+          </div>
+          <input type="range" class="r2" id="ratioCtrl" min="1.0" max="1.03"
+            step="0.0001" value="1.002" oninput="updateRatio()">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="ctrl-title">Master</div>
+      <div class="ctrl-group">
+        <div class="ctrl-row">
+          <div class="ctrl-hd">
+            <span class="cn">Volume</span>
+            <span class="cv" id="volVal">0.6</span>
+          </div>
+          <input type="range" id="volCtrl" min="0" max="1" step="0.01" value="0.6"
+            oninput="updateVol()">
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
