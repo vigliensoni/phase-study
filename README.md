@@ -25,7 +25,7 @@ package.json       Node dependencies (ws)
 Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, causing it to drift ahead of Voice I over time. The offset accumulates until the voices realign — completing a full phase cycle.
 
 ### Audio sample
-- Drop or browse any WAV / MP3 / OGG file
+- Drop or browse any WAV / AIFF / MP3 / OGG file (AIFF is decoded in JavaScript, so it works in every browser)
 - Waveform thumbnail with dual playhead display
 - Phase offset computed from elapsed time and playback rate ratio
 

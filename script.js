@@ -94,7 +94,10 @@ function loadFile(file) {
   reader.onload = async e => {
     if (!audioCtx) initAudio();
     try {
-      sampleBuffer = await audioCtx.decodeAudioData(e.target.result.slice(0));
+      const data = e.target.result;
+      // Most browsers can't decode AIFF natively, so parse it ourselves
+      sampleBuffer = isAiff(data) ? decodeAiff(data)
+                                  : await audioCtx.decodeAudioData(data.slice(0));
       document.getElementById('sampleDur').textContent =
         sampleBuffer.duration.toFixed(2) + 's';
       drawSampleThumb();
@@ -103,6 +106,76 @@ function loadFile(file) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ── AIFF / AIFF-C decoding ──
+function isAiff(buf) {
+  if (buf.byteLength < 12) return false;
+  const tag = (o) => String.fromCharCode(...new Uint8Array(buf, o, 4));
+  return tag(0) === 'FORM' && (tag(8) === 'AIFF' || tag(8) === 'AIFC');
+}
+
+// 80-bit IEEE 754 extended float (big-endian), used for the sample rate
+function readExtended(dv, o) {
+  const exp  = dv.getUint16(o) & 0x7fff;
+  const hi   = dv.getUint32(o + 2);
+  const lo   = dv.getUint32(o + 6);
+  if (exp === 0 && hi === 0 && lo === 0) return 0;
+  return (hi * 2 ** -31 + lo * 2 ** -63) * 2 ** (exp - 16383);
+}
+
+function decodeAiff(buf) {
+  const dv   = new DataView(buf);
+  const tag  = (o) => String.fromCharCode(dv.getUint8(o), dv.getUint8(o + 1), dv.getUint8(o + 2), dv.getUint8(o + 3));
+  const aifc = tag(8) === 'AIFC';
+  let channels, frames, bits, rate, comp = 'NONE', ssnd = -1;
+
+  for (let o = 12; o + 8 <= buf.byteLength; ) {
+    const id = tag(o), size = dv.getUint32(o + 4), body = o + 8;
+    if (id === 'COMM') {
+      channels = dv.getInt16(body);
+      frames   = dv.getUint32(body + 2);
+      bits     = dv.getInt16(body + 6);
+      rate     = readExtended(dv, body + 8);
+      if (aifc) comp = tag(body + 18);
+    } else if (id === 'SSND') {
+      ssnd = body + 8 + dv.getUint32(body); // skip offset + blockSize fields
+    }
+    o = body + size + (size & 1); // chunks are padded to even length
+  }
+  if (!channels || ssnd < 0) throw new Error('Invalid AIFF file');
+
+  const little = comp === 'sowt';
+  const float  = comp === 'fl32' || comp === 'FL32' || comp === 'fl64' || comp === 'FL64';
+  if (!['NONE', 'sowt', 'fl32', 'FL32', 'fl64', 'FL64'].includes(comp))
+    throw new Error(`Unsupported AIFF-C compression "${comp}"`);
+  if (comp.toLowerCase() === 'fl64') bits = 64;
+  else if (float) bits = 32;
+
+  const bytes = Math.ceil(bits / 8);
+  frames = Math.min(frames, Math.floor((buf.byteLength - ssnd) / (bytes * channels)));
+  const out  = audioCtx.createBuffer(channels, frames, rate);
+  const chs  = Array.from({ length: channels }, (_, c) => out.getChannelData(c));
+  const norm = 2 ** (bytes * 8 - 1);
+
+  let p = ssnd;
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < channels; c++, p += bytes) {
+      let v;
+      if (float)            v = bytes === 8 ? dv.getFloat64(p, little) : dv.getFloat32(p, little);
+      else if (bytes === 1) v = dv.getInt8(p) / norm;
+      else if (bytes === 2) v = dv.getInt16(p, little) / norm;
+      else if (bytes === 4) v = dv.getInt32(p, little) / norm;
+      else { // 24-bit
+        const b0 = dv.getUint8(p), b1 = dv.getUint8(p + 1), b2 = dv.getUint8(p + 2);
+        let n = little ? (b2 << 16) | (b1 << 8) | b0 : (b0 << 16) | (b1 << 8) | b2;
+        if (n & 0x800000) n -= 0x1000000;
+        v = n / norm;
+      }
+      chs[c][i] = v;
+    }
+  }
+  return out;
 }
 
 function drawSampleThumb() {
