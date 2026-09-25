@@ -1,4 +1,16 @@
 // ═══════════════════════════════════════════════════════════════════════════════
+// SOUNDS — edit this list with your own filenames (one per button, 1 to 5).
+// Paths are relative to this folder, e.g. 'C04-S01-my-sound.wav'.
+// ═══════════════════════════════════════════════════════════════════════════════
+const SOUNDS = [
+  'assets/1.wav',
+  'assets/2.wav',
+  'assets/3.wav',
+  'assets/4.wav',
+  'assets/5.wav',
+];
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // THEME
 // ═══════════════════════════════════════════════════════════════════════════════
 function themeColor(name) {
@@ -32,7 +44,7 @@ let phasingPaused = false;
 let animFrame     = null;
 let startTime     = 0;
 
-let speedRatio = 1.002;
+let speedRatio = 1.01;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SAMPLE STATE
@@ -92,17 +104,18 @@ function loadFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
-// Built-in sounds: assets/1.wav … assets/5.wav
+// Built-in sounds: the files listed in SOUNDS at the top of this file
 async function loadSound(n) {
   if (isPlaying) togglePlay();
   setActiveSound(n);
   const id = ++loadId;
 
-  document.getElementById('sampleName').textContent = `Sound ${n}`;
+  const file = SOUNDS[n - 1];
+  document.getElementById('sampleName').textContent = file.split('/').pop();
   document.getElementById('sampleInfo').classList.add('visible');
 
   try {
-    const res = await fetch(`assets/${n}.wav`);
+    const res = await fetch(encodeURI(file));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     decodeSample(await res.arrayBuffer(), id);
   } catch(err) {
