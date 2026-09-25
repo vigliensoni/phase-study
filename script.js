@@ -76,30 +76,64 @@ dropZone.addEventListener('drop', e => {
   if (f) loadFile(f);
 });
 
+let loadId = 0; // ignore results from a load that a newer one has replaced
+
 function loadFile(file) {
   if (!file) return;
   if (isPlaying) togglePlay();
+  setActiveSound(null);
+  const id = ++loadId;
 
   document.getElementById('sampleName').textContent = file.name;
   document.getElementById('sampleInfo').classList.add('visible');
 
   const reader = new FileReader();
-  reader.onload = async e => {
-    if (!audioCtx) initAudio();
-    try {
-      const data = e.target.result;
-      // Most browsers can't decode AIFF natively, so parse it ourselves
-      sampleBuffer = isAiff(data) ? decodeAiff(data)
-                                  : await audioCtx.decodeAudioData(data.slice(0));
-      document.getElementById('sampleDur').textContent =
-        sampleBuffer.duration.toFixed(2) + 's';
-      drawSampleThumb();
-      drawCircle();
-    } catch(err) {
-      alert('Could not decode audio file: ' + err.message);
-    }
-  };
+  reader.onload = e => decodeSample(e.target.result, id);
   reader.readAsArrayBuffer(file);
+}
+
+// Built-in sounds: assets/1.wav … assets/5.wav
+async function loadSound(n) {
+  if (isPlaying) togglePlay();
+  setActiveSound(n);
+  const id = ++loadId;
+
+  document.getElementById('sampleName').textContent = `Sound ${n}`;
+  document.getElementById('sampleInfo').classList.add('visible');
+
+  try {
+    const res = await fetch(`assets/${n}.wav`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    decodeSample(await res.arrayBuffer(), id);
+  } catch(err) {
+    if (id !== loadId) return;
+    setActiveSound(null);
+    alert(`Could not load sound ${n}: ${err.message}` +
+      (location.protocol === 'file:' ? '\nBuilt-in sounds need the page to be served over http (see README).' : ''));
+  }
+}
+
+function setActiveSound(n) {
+  document.querySelectorAll('.sound-btn').forEach(b =>
+    b.classList.toggle('active', +b.dataset.sound === n));
+}
+
+async function decodeSample(data, id) {
+  if (!audioCtx) initAudio();
+  try {
+    // Most browsers can't decode AIFF natively, so parse it ourselves
+    const buffer = isAiff(data) ? decodeAiff(data)
+                                : await audioCtx.decodeAudioData(data.slice(0));
+    if (id !== loadId) return;
+    sampleBuffer = buffer;
+    document.getElementById('sampleDur').textContent =
+      sampleBuffer.duration.toFixed(2) + 's';
+    drawSampleThumb();
+    drawCircle();
+  } catch(err) {
+    if (id !== loadId) return;
+    alert('Could not decode audio file: ' + err.message);
+  }
 }
 
 // ── AIFF / AIFF-C decoding ──

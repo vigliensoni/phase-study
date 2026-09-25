@@ -22,7 +22,7 @@ script.js          Audio engine, UI logic, and visualization
 Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, causing it to drift ahead of Voice I over time. The offset accumulates until the voices realign — completing a full phase cycle.
 
 ### Audio sample
-- Drop or browse any WAV / AIFF / MP3 / OGG file (AIFF is decoded in JavaScript, so it works in every browser)
+- Pick one of five built-in sounds (`assets/1.wav`–`5.wav`) from the sidebar, or drop or browse any WAV / AIFF / MP3 / OGG file (AIFF is decoded in JavaScript, so it works in every browser)
 - Waveform thumbnail, plus a circular playhead display: the loop is one turn around a ring, with one hand per voice and the phase offset shown as an arc between them
 - Voice II's position is tracked across speed changes, so pausing phasing holds the current offset
 
@@ -39,13 +39,19 @@ Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, c
 
 Live version: https://vigliensoni.github.io/phase-study/
 
-It's a static site with no build step or dependencies: `index.html` loads `style.css` and `script.js` from the same directory. To run it locally, open `index.html` in any modern browser. If your browser won't load audio files from a `file://` page, serve the folder instead:
+It's a static site with no build step or dependencies: `index.html` loads `style.css` and `script.js` from the same directory. To run it locally, open `index.html` in any modern browser. The built-in sounds need the folder to be served over http, and some browsers also block decoding dropped files on a `file://` page, so serving it is the most reliable option:
 
 ```bash
 python3 -m http.server   # then open http://localhost:8000
 ```
 
 Audio files are decoded in the browser and never uploaded anywhere.
+
+## Sound credits
+
+| File | Source | License |
+|---|---|---|
+| `assets/3.wav` | [arpegio01_loop.wav](https://freesound.org/s/428857/) by supervanz | [Creative Commons 0](https://creativecommons.org/publicdomain/zero/1.0/) |
 
 ## References
 

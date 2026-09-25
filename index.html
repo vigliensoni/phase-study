@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IT'S GONNA RAIN — Reich Phase</title>
+<title>IT'S GONNA RAIN — Study on Phase</title>
 <script>
   // Apply saved theme before first paint (light is the default)
   try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
@@ -15,7 +15,7 @@
 <header>
   <div class="title-block">
     <h1>It's Gonna Rain</h1>
-    <h2>Phase Study · Steve Reich (1965) · Audio Sample</h2>
+    <h2>Based on Steve Reich's <em>It's Gonna Rain (1965)</em> </h2>
   </div>
   <div class="meta">
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">◐ &nbsp;Dark</button>
@@ -56,6 +56,17 @@
   </div>
 
   <div class="right">
+
+    <div>
+      <div class="ctrl-title">Sound</div>
+      <div class="sound-btns">
+        <button class="sound-btn" data-sound="1" onclick="loadSound(1)">1</button>
+        <button class="sound-btn" data-sound="2" onclick="loadSound(2)">2</button>
+        <button class="sound-btn" data-sound="3" onclick="loadSound(3)">3</button>
+        <button class="sound-btn" data-sound="4" onclick="loadSound(4)">4</button>
+        <button class="sound-btn" data-sound="5" onclick="loadSound(5)">5</button>
+      </div>
+    </div>
 
     <div>
       <div class="ctrl-title">Transport</div>

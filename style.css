@@ -214,6 +214,16 @@ input[type=range].r2::-webkit-slider-thumb { background: var(--c2); }
 .btn-reset { border-color: var(--dim); color: var(--mid); margin-top: 0.5rem; }
 .btn-reset:hover { border-color: var(--fg); color: var(--fg); }
 
+.sound-btns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem; }
+.sound-btn {
+  font-family: 'Space Mono', monospace; font-size: 0.96rem;
+  padding: 0.55rem 0; cursor: pointer;
+  border: 1px solid var(--dim); background: none; color: var(--mid);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.sound-btn:hover { border-color: var(--fg); color: var(--fg); }
+.sound-btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
 .status {
   font-size: 0.77rem; color: var(--mid); letter-spacing: 0.15em;
   text-align: center; margin-top: 0.35rem;
