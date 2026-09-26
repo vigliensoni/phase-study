@@ -12,8 +12,14 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
 };
 
-const myId = store.get('c04e-id') || randomId(8);
-store.set('c04e-id', myId);
+// One id per tab (survives a reload, but two tabs on one device are two phones)
+const myId = (() => {
+  try {
+    const id = sessionStorage.getItem('c04e-id') || randomId(8);
+    sessionStorage.setItem('c04e-id', id);
+    return id;
+  } catch (e) { return randomId(8); }
+})();
 
 let voice = Math.max(1, parseInt(params.get('voice') || store.get('c04e-voice') || '1', 10) || 1);
 let trimMs = +(store.get('c04e-trim') || 0); // manual latency trim, + = play earlier
@@ -84,7 +90,7 @@ function getBuffer(n) {
     buffers.set(n, fetch(SOUNDS[n - 1])
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
       .then(d => ctx.decodeAudioData(d))
-      .then(b => { ready.add(n); sendPresence(); return b; })
+      .then(b => { decoded.set(n, b); ready.add(n); sendPresence(); return b; })
       .catch(e => { buffers.delete(n); throw e; }));
   }
   return buffers.get(n);
@@ -99,7 +105,14 @@ function applyState() { applying = applying.then(doApply, doApply); }
 async function doApply() {
   const S = state;
   if (!joined || !synced || !S) return renderStatus();
-  if (!S.playing) { stopAt(S.stopAt); return renderStatus(); }
+  if (!S.playing) { stopAt(S.stopAt); stopScore(S.stopAt); return renderStatus(); }
+
+  if (S.mode === 'score') {
+    if (cur) stopAt(0);
+    await applyScore(S);
+    return renderStatus();
+  }
+  if (run) stopScore(0);
 
   let buffer;
   try { buffer = await getBuffer(S.sound); }
@@ -151,6 +164,114 @@ function seat(S, buffer, smooth) {
   cur = { src, gain, epoch: S.epoch, voice, sound: S.sound, tA: S.tA, S, seatK: at - ts / 1000, buffer };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCORE MODE — the whole piece arrives in one message; this phone keeps the
+// layers of its own group and schedules every fade and drift change ahead.
+// ═══════════════════════════════════════════════════════════════════════════════
+let run = null; // { key, epoch, nodes, seatK, S, comp, group, rank }
+let compiled = { json: null, comp: null };
+
+function compiledFor(S) {
+  const json = JSON.stringify(S.score);
+  if (compiled.json !== json) compiled = { json, comp: compileScore(S.score, SOUNDS.length) };
+  return compiled.comp;
+}
+
+function myAssign(S) { return (S.assign && S.assign[myId]) || null; }
+
+async function applyScore(S) {
+  const comp = compiledFor(S);
+  const a = myAssign(S);
+  if (!a) { stopScore(0); return; }
+  const [group, rank] = a;
+  const mine = comp.layers.filter(L => L.group === group);
+
+  try { await Promise.all([...new Set(mine.map(L => L.sound))].map(getBuffer)); }
+  catch (e) { setStatus('COULD NOT LOAD SOUNDS'); return; }
+  if (state !== S) return;
+
+  const key = [S.epoch, group, rank, JSON.stringify(S.overrides || [])].join('|');
+  if (run && run.key === key) { run.S = S; return; }
+  scheduleScore(S, comp, group, rank, key, !!(run && run.epoch === S.epoch));
+}
+
+// Build every node for this phone's layers, from "now" to the end of the piece.
+function scheduleScore(S, comp, group, rank, key, smooth) {
+  let ts = sharedNow() + 150;
+  let at = ctxTimeFor(ts);
+  const earliest = ctx.currentTime + 0.03;
+  if (at < earliest) { ts += (earliest - at) * 1000; at = earliest; }
+  const st  = (ts - S.T0) / 1000;               // score time at `at`
+  const c   = t => at + (t - st);               // score time → context time
+  const fade = smooth ? 0.03 : 0.005;
+
+  if (run) fadeOutNodes(run.nodes, at, fade);
+
+  const nodes = [];
+  for (const L of comp.layers) {
+    if (L.group !== group || L.stop <= st) continue;
+    const buffer = bufferNow(L.sound);
+    if (!buffer) continue;
+    const drift = effectiveDrift(L, S.overrides);
+    const t0 = Math.max(st, L.start);           // when this node starts sounding
+    const c0 = t0 === st ? at : c(t0);
+
+    const src = ctx.createBufferSource(), gain = ctx.createGain();
+    src.buffer = buffer;
+    src.loop = true;
+    src.connect(gain).connect(master);
+
+    // Drift → playback rate, following the curve exactly (steps and ramps)
+    const rate = v => 1 + (rank - 1) * v;
+    src.playbackRate.setValueAtTime(rate(valueAt(drift, t0)), c0);
+    scheduleCurve(src.playbackRate, drift.filter(p => p.t > t0), c, rate);
+
+    // Gain envelope (with a short fade-in when re-seating mid-sound)
+    const g0 = valueAt(L.gain, t0);
+    const midSound = smooth && t0 > L.start;
+    gain.gain.setValueAtTime(midSound ? 0 : g0, c0);
+    if (midSound) gain.gain.linearRampToValueAtTime(valueAt(L.gain, t0 + fade), c0 + fade);
+    scheduleCurve(gain.gain, L.gain.filter(p => p.t > t0 + (midSound ? fade : 0)), c, v => v);
+
+    src.start(c0, layerPos(L, drift, rank, t0, buffer.duration));
+    if (isFinite(L.stop)) src.stop(c(L.stop) + 0.05);
+    nodes.push({ src, gain, L, drift, buffer });
+  }
+  run = { key, epoch: S.epoch, nodes, seatK: at - ts / 1000, S, comp, group, rank };
+}
+
+function scheduleCurve(param, pts, c, map) {
+  let prevT = null;
+  for (const p of pts) {
+    if (p.t === prevT) param.setValueAtTime(map(p.v), c(p.t));
+    else param.linearRampToValueAtTime(map(p.v), c(p.t));
+    prevT = p.t;
+  }
+}
+
+function fadeOutNodes(nodes, at, fade) {
+  for (const n of nodes) {
+    try {
+      const g = n.gain.gain;
+      if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(at);
+      else { g.cancelScheduledValues(at); g.setValueAtTime(g.value, at); }
+      n.gain.gain.linearRampToValueAtTime(0, at + fade);
+      n.src.stop(at + fade + 0.02);
+    } catch (e) {}
+  }
+}
+
+function stopScore(tShared) {
+  if (!run) return;
+  const at = Math.max(ctxTimeFor(tShared || 0), ctx.currentTime + 0.005);
+  fadeOutNodes(run.nodes, at, 0.02);
+  run = null;
+}
+
+// Decoded buffers, synchronously (applyScore awaited them already)
+const decoded = new Map();
+function bufferNow(n) { return decoded.get(n) || null; }
+
 function stopAt(tShared) {
   if (!cur) return;
   const at = Math.max(ctxTimeFor(tShared || 0), ctx.currentTime + 0.005);
@@ -165,7 +286,17 @@ function stopAt(tShared) {
 // running voice has slipped from where it should be; past 20 ms, re-seat it.
 let driftMs = 0;
 function checkDrift() {
-  if (!cur || !synced) return;
+  if (!synced) return;
+  if (run) {
+    const X = sharedNow() + 200;
+    driftMs = ((ctxTimeFor(X) - X / 1000) - run.seatK) * 1000;
+    if (Math.abs(driftMs) > 20) {
+      scheduleScore(run.S, run.comp, run.group, run.rank, run.key, true);
+      driftMs = 0;
+    }
+    return;
+  }
+  if (!cur) return;
   const X = sharedNow() + 200;
   driftMs = ((ctxTimeFor(X) - X / 1000) - cur.seatK) * 1000;
   if (Math.abs(driftMs) > 20) { seat(cur.S, cur.buffer, true); driftMs = 0; }
@@ -179,7 +310,9 @@ function sendPresence() {
   client.publish(T.presence, JSON.stringify({
     id: myId, voice, rtt: minRtt, jitter,
     lat: ctx ? ((ctx.outputLatency || ctx.baseLatency || 0) * 1000) : null,
-    ready: state ? ready.has(state.sound) : ready.size > 0,
+    ready: state && state.mode === 'score' ? ready.size === SOUNDS.length
+         : state ? ready.has(state.sound) : ready.size > 0,
+    assign: state ? myAssign(state) : null,
   }));
 }
 
@@ -316,7 +449,13 @@ function renderStatus() {
   else if (!client || !client.connected) txt = statusOverride || 'CONNECTING…';
   else if (!synced) txt = localNow() - lastPong > 5000 && samples.length === 0
     ? 'WAITING FOR CONDUCTOR' : 'SYNCING CLOCK…';
+  else if (state && state.mode === 'score' && !myAssign(state)) txt = 'WAITING FOR A GROUP…';
   else if (!state || !state.playing) txt = 'READY — WAITING FOR START';
+  else if (state.mode === 'score') {
+    const st = (sharedNow() - state.T0) / 1000, comp = compiledFor(state);
+    txt = ctx.state !== 'running' ? 'AUDIO BLOCKED — TAP “TEST SOUND”'
+        : st < 0 ? 'COUNT-IN…' : st > comp.end ? 'END' : 'PLAYING';
+  }
   else if (!cur) txt = 'LOADING SOUND…';
   else if (ctx.state !== 'running') txt = 'AUDIO BLOCKED — TAP “TEST SOUND”';
   else if (sharedNow() < state.T0) txt = 'COUNT-IN…';
@@ -342,8 +481,48 @@ function renderLoop() {
       else hands[0].width = 4;
     }
   }
+  if (S && S.mode === 'score') hands = scoreHands(S);
   drawRing(canvas, hands);
+  renderIdentity();
   requestAnimationFrame(renderLoop);
+}
+
+// Score mode: ring shows the loudest sound in my group — my hand vs. phone 1's
+function scoreHands(S) {
+  const nowTxt = document.getElementById('nowTxt');
+  if (!run || !S.playing || !synced) { if (nowTxt) nowTxt.textContent = ''; return []; }
+  const st = (sharedNow() - S.T0) / 1000;
+  let best = null, bestG = 0.001;
+  for (const n of run.nodes) {
+    const g = st >= n.L.start && st <= n.L.stop ? valueAt(n.L.gain, st) : 0;
+    if (g > bestG) { best = n; bestG = g; }
+  }
+  if (nowTxt) nowTxt.textContent = st < 0 ? `starts in ${Math.ceil(-st)} s`
+    : fmtTime(st) + (best ? ` · sound ${best.L.sound} · ratio ${(1 + valueAt(best.drift, st)).toFixed(4)}` : ' · silent');
+  if (!best) return [];
+  const dur = best.buffer.duration, col = groupColor(run.group, run.comp.groups);
+  const hands = [{ pos: layerPos(best.L, best.drift, 1, st, dur) / dur, color: themeColor('--mid'), width: 2 }];
+  if (run.rank !== 1) hands.unshift({ pos: layerPos(best.L, best.drift, run.rank, st, dur) / dur, color: col, width: 4 });
+  else hands[0] = { ...hands[0], color: col, width: 4 };
+  return hands;
+}
+
+// Big label: voice number (free mode) or group letter + phone number (score mode)
+function renderIdentity() {
+  const big = document.getElementById('voiceBig'), sub = document.getElementById('subTxt');
+  const S = state, scoreMode = S && S.mode === 'score';
+  document.body.classList.toggle('score-mode', !!scoreMode);
+  if (scoreMode) {
+    const a = myAssign(S), comp = compiledFor(S);
+    const txt = a ? a[0] : '·';
+    if (big.textContent !== txt) big.textContent = txt;
+    big.style.color = a ? groupColor(a[0], comp.groups) : themeColor('--mid');
+    sub.textContent = a ? `Group · phone ${a[1]}` : 'Group';
+  } else {
+    if (big.textContent !== String(voice)) big.textContent = voice;
+    big.style.color = voiceColor(voice);
+    sub.textContent = 'Voice';
+  }
 }
 
 function themeChanged() {

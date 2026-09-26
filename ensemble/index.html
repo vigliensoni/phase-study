@@ -43,13 +43,14 @@
 
   <!-- After joining -->
   <div class="only-joined" style="flex-direction:column; gap:0.8rem">
-    <div class="label" style="text-align:center; margin:0">Voice</div>
+    <div class="label" style="text-align:center; margin:0" id="subTxt">Voice</div>
     <div class="voice-big" id="voiceBig">1</div>
-    <div class="voice-pick">
+    <div class="voice-pick free-only">
       <button onclick="nudgeVoice(-1)">−</button>
       <button onclick="nudgeVoice(1)">+</button>
     </div>
     <div class="status-line" id="statusTxt">CONNECTING…</div>
+    <div class="stats-line" id="nowTxt" style="color:var(--fg)"></div>
     <div class="stats-line" id="statsTxt"></div>
     <button class="btn btn-reset" onclick="testSound()">♪ &nbsp;Test sound</button>
   </div>
@@ -71,6 +72,7 @@
 </div>
 
 <script src="net.js"></script>
+<script src="score-engine.js"></script>
 <script src="performer.js"></script>
 </body>
 </html>

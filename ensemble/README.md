@@ -14,6 +14,8 @@ so with ratio 1.002, voice 2 is 0.2 % faster, voice 3 is 0.4 % faster, and so on
 index.html       Performer page (open on each phone)
 conductor.html   Conductor page (open on the laptop / projector)
 net.js           Shared: broker connection, topics, the phase math, ring drawing
+score-engine.js  Shared: compiles a score into per-group layers; drift maths
+scores.js        The scores (edit this to write your own)
 performer.js     Clock sync, scheduling, drift correction, audio
 conductor.js     Shared clock, state of the piece, roster, controls
 ensemble.css     Layout (on top of ../style.css)
@@ -29,6 +31,48 @@ Sounds come from `../assets/` (the same list as the single-browser study).
 4. **Start** lands 1.5 s after you press it. The ratio slider and **Pause phasing** take effect 0.4 s after you use them, on every phone at the same moment. **Sync voices** restarts everyone aligned.
 
 Anyone joining late, or reloading, jumps straight to where their voice should be. The conductor can reload too; it picks the piece back up from the broker.
+
+## Score mode
+
+Switch the conductor to **Score** to play a timed piece from `scores.js`.
+
+- **Groups.** Phones are dealt into the score’s groups in join order: 1st → A, 2nd → B, 3rd → C, 4th → D, 5th → A… A phone that reloads keeps its group. **Re-deal groups** evens them out after phones leave. Each phone shows its group letter and its number in the group.
+- **Drift inside a group.** Phone *k* of a group plays at `1 + (k − 1) · (ratio − 1)`, so each group spreads apart at its own rate. The first phone of every group is the reference.
+- **One message.** The whole score and a start time go to every phone once. Each phone computes its own part and schedules every fade and drift change ahead, so a network hiccup mid-piece doesn’t matter, and a phone that joins late starts exactly where its group is.
+- **Start from.** Type a time or click the timeline, then **Start score**. Handy for rehearsing a section.
+- **Live drift override.** The slider still works: moving it overrides every group’s scored drift from that moment. **Follow score** hands control back.
+
+### Writing a score
+
+Add an entry to the `SCORES` list in `scores.js`:
+
+```js
+{
+  title: 'Rain Study I',
+  groups: ['A', 'B', 'C', 'D'],
+  events: [
+    { at: '0:00', groups: 'ABC', play: 1, ratio: 1.002, fade: 5 },
+    { at: '2:00', groups: 'D',   play: 2, ratio: 1.010, fade: 60 },   // 1-min fade-in
+    { at: '2:00', groups: 'ABC', stop: 1, fade: 60 },                 // crossfade…
+    { at: '2:00', groups: 'ABC', play: 2, ratio: 1.004, fade: 60 },   // …into sound 2
+    { at: '4:00', groups: 'all', ratio: 1.015, glide: 20 },           // accelerate
+    { at: '5:00', groups: 'all', ratio: 1.000, glide: 30 },           // freeze the phases
+    { at: '6:00', groups: 'all', stop: 'all', fade: 20 },
+  ],
+  end: '6:20',
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `at` | When: `"m:ss"` or seconds |
+| `groups` | `"ABC"`, `["A","D"]`, or `"all"` (default) |
+| `play: n` | Start sound *n* in those groups. Options: `ratio`, `fade` (s), `level` (0–1) |
+| `stop: n` / `stop: "all"` | Fade out. Option: `fade` (s) |
+| `ratio: r` | Change drift of the sounds playing in those groups. Options: `glide` (s), `sound` |
+| `level: v` | Change loudness. Options: `fade` (s), `sound` |
+
+A group can play several sounds at once, which is how crossfades work. Mistakes (an unknown group, a missing sound, a bad time) show in red under the timeline.
 
 ## How the timing works
 
