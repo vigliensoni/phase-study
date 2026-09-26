@@ -36,8 +36,8 @@ Anyone joining late, or reloading, jumps straight to where their voice should be
 
 Switch the conductor to **Score** to play a timed piece from `scores.js`.
 
-- **Groups.** Phones are dealt into the score’s groups in join order: 1st → A, 2nd → B, 3rd → C, 4th → D, 5th → A… A phone that reloads keeps its group. **Re-deal groups** evens them out after phones leave. Each phone shows its group letter and its number in the group.
-- **Drift inside a group.** Phone *k* of a group plays at `1 + (k − 1) · (ratio − 1)`, so each group spreads apart at its own rate. The first phone of every group is the reference.
+- **Groups.** The score says how many groups it needs (`groups: 3` → A, B, C). Phones are dealt into them in join order: 1st → A, 2nd → B, 3rd → C, 4th → A… Choosing another score re-deals everyone into its groups. A phone that reloads keeps its group; **Re-deal groups** evens them out after phones leave. Each phone shows its group letter and its number in the group.
+- **Two kinds of drift.** `ratio` works *inside* a group: phone *k* drifts from the group’s first phone. `spread` works *across* groups: B drifts from A, C twice as far, and so on. They add up: phone *k* of group *j* plays at `1 + (k − 1)·(ratio − 1) + (j − 1)·(spread − 1)`.
 - **One message.** The whole score and a start time go to every phone once. Each phone computes its own part and schedules every fade and drift change ahead, so a network hiccup mid-piece doesn’t matter, and a phone that joins late starts exactly where its group is.
 - **Start from.** Type a time or click the timeline, then **Start score**. Handy for rehearsing a section.
 - **Live drift override.** The slider still works: moving it overrides every group’s scored drift from that moment. **Follow score** hands control back.
@@ -49,9 +49,10 @@ Add an entry to the `SCORES` list in `scores.js`:
 ```js
 {
   title: 'Rain Study I',
-  groups: ['A', 'B', 'C', 'D'],
+  groups: 4,
   events: [
     { at: '0:00', groups: 'ABC', play: 1, ratio: 1.002, fade: 5 },
+    { at: '1:00', spread: 1.001, glide: 30 },                         // groups drift apart
     { at: '2:00', groups: 'D',   play: 2, ratio: 1.010, fade: 60 },   // 1-min fade-in
     { at: '2:00', groups: 'ABC', stop: 1, fade: 60 },                 // crossfade…
     { at: '2:00', groups: 'ABC', play: 2, ratio: 1.004, fade: 60 },   // …into sound 2
@@ -66,10 +67,11 @@ Add an entry to the `SCORES` list in `scores.js`:
 | Field | Meaning |
 |---|---|
 | `at` | When: `"m:ss"` or seconds |
-| `groups` | `"ABC"`, `["A","D"]`, or `"all"` (default) |
+| `groups` | On an event: `"ABC"`, `["A","D"]`, or `"all"` (default). On the score: how many groups |
 | `play: n` | Start sound *n* in those groups. Options: `ratio`, `fade` (s), `level` (0–1) |
 | `stop: n` / `stop: "all"` | Fade out. Option: `fade` (s) |
-| `ratio: r` | Change drift of the sounds playing in those groups. Options: `glide` (s), `sound` |
+| `ratio: r` | Drift *inside* those groups. Options: `glide` (s), `sound` |
+| `spread: s` | Drift *across* groups, for the whole piece. Option: `glide` (s) |
 | `level: v` | Change loudness. Options: `fade` (s), `sound` |
 
 A group can play several sounds at once, which is how crossfades work. Mistakes (an unknown group, a missing sound, a bad time) show in red under the timeline.

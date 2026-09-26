@@ -168,12 +168,11 @@ const scoreNow = () => (localNow() - S.T0) / 1000;
 
 function selectScore(i) {
   i = +i;
-  const oldGroups = comp.groups.join();
   S.scoreIdx = i;
   S.score = SCORES[i];
   comp = compileScore(S.score, SOUNDS.length);
   if (S.playing) { S.playing = false; S.stopAt = localNow() + LEAD_CHANGE; }
-  if (comp.groups.join() !== oldGroups) rebalance(false);
+  rebalance(false); // re-deal every phone into this score's groups
   publishState();
 }
 
@@ -391,6 +390,25 @@ function drawTimeline() {
       c.fillText(`${L.sound} · ${(1 + L.drift[0].v).toFixed(3)}`, x(L.start) + 4 * dpr, y0 + 10 * dpr);
     }
   });
+
+  // Spread (across groups): dotted curve + labels in the axis band
+  const maxS = Math.max(1e-6, ...comp.spread.map(p => p.v));
+  if (comp.spread.some(p => p.v > 0)) {
+    c.strokeStyle = themeColor('--cp'); c.lineWidth = 1 * dpr; c.setLineDash([1 * dpr, 2 * dpr]);
+    c.beginPath();
+    for (let i = 0; i <= 200; i++) {
+      const t = end * i / 200, yy = top - 1 * dpr - 5 * dpr * valueAt(comp.spread, t) / maxS;
+      i ? c.lineTo(x(t), yy) : c.moveTo(x(t), yy);
+    }
+    c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+    c.fillStyle = themeColor('--cp');
+    let prev = null;
+    for (const p of comp.spread) {
+      if (p.v === prev) continue;
+      prev = p.v;
+      if (p.t > 0 || p.v > 0) c.fillText(`spread ${(1 + p.v).toFixed(3)}`, x(p.t) + 2 * dpr, top + laneH * G - 8 * dpr);
+    }
+  }
 
   // Overrides: band along the top
   S.overrides.forEach((o, i) => {

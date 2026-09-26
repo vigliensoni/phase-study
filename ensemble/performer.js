@@ -221,10 +221,12 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     src.loop = true;
     src.connect(gain).connect(master);
 
-    // Drift → playback rate, following the curve exactly (steps and ramps)
-    const rate = v => 1 + (rank - 1) * v;
-    src.playbackRate.setValueAtTime(rate(valueAt(drift, t0)), c0);
-    scheduleCurve(src.playbackRate, drift.filter(p => p.t > t0), c, rate);
+    // Drift (inside the group) + spread (across groups) → playback rate,
+    // following the curves exactly (steps and ramps)
+    const rc = rateCurve(L, drift, rank, comp.spread);
+    const rate = v => 1 + v;
+    src.playbackRate.setValueAtTime(rate(valueAt(rc, t0)), c0);
+    scheduleCurve(src.playbackRate, rc.filter(p => p.t > t0), c, rate);
 
     // Gain envelope (with a short fade-in when re-seating mid-sound)
     const g0 = valueAt(L.gain, t0);
@@ -233,7 +235,7 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     if (midSound) gain.gain.linearRampToValueAtTime(valueAt(L.gain, t0 + fade), c0 + fade);
     scheduleCurve(gain.gain, L.gain.filter(p => p.t > t0 + (midSound ? fade : 0)), c, v => v);
 
-    src.start(c0, layerPos(L, drift, rank, t0, buffer.duration));
+    src.start(c0, layerPos(L, drift, rank, t0, buffer.duration, comp.spread));
     if (isFinite(L.stop)) src.stop(c(L.stop) + 0.05);
     nodes.push({ src, gain, L, drift, buffer });
   }
@@ -498,11 +500,12 @@ function scoreHands(S) {
     if (g > bestG) { best = n; bestG = g; }
   }
   if (nowTxt) nowTxt.textContent = st < 0 ? `starts in ${Math.ceil(-st)} s`
-    : fmtTime(st) + (best ? ` · sound ${best.L.sound} · ratio ${(1 + valueAt(best.drift, st)).toFixed(4)}` : ' · silent');
+    : fmtTime(st) + (best ? ` · sound ${best.L.sound} · ratio ${(1 + valueAt(best.drift, st)).toFixed(4)}`
+      + ` · spread ${(1 + valueAt(run.comp.spread, st)).toFixed(4)}` : ' · resting');
   if (!best) return [];
-  const dur = best.buffer.duration, col = groupColor(run.group, run.comp.groups);
-  const hands = [{ pos: layerPos(best.L, best.drift, 1, st, dur) / dur, color: themeColor('--mid'), width: 2 }];
-  if (run.rank !== 1) hands.unshift({ pos: layerPos(best.L, best.drift, run.rank, st, dur) / dur, color: col, width: 4 });
+  const dur = best.buffer.duration, col = groupColor(run.group, run.comp.groups), sp = run.comp.spread;
+  const hands = [{ pos: layerPos(best.L, best.drift, 1, st, dur, sp) / dur, color: themeColor('--mid'), width: 2 }];
+  if (run.rank !== 1) hands.unshift({ pos: layerPos(best.L, best.drift, run.rank, st, dur, sp) / dur, color: col, width: 4 });
   else hands[0] = { ...hands[0], color: col, width: 4 };
   return hands;
 }

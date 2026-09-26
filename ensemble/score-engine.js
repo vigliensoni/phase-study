@@ -5,10 +5,13 @@
 // drift curve. Everything is a deterministic function of score time, so every
 // phone can work out its own part, and join at any moment.
 //
-// Inside a group, the phones drift apart: phone of rank k plays at
-//   rate_k(t) = 1 + (k − 1) · d(t),    d(t) = ratio(t) − 1
+// Two kinds of drift:
+//   ratio   inside a group: phone k drifts from phone 1 of its group
+//   spread  across groups:  group j drifts from group A
+// Phone k of group j (both counted from 0) plays at
+//   rate(t) = 1 + k · d(t) + j · s(t),    d = ratio − 1,  s = spread − 1
 // and its loop position is
-//   pos_k(t) = (t − start) + (k − 1) · ∫ d(u) du   (from layer start to t)
+//   pos(t)  = (t − start) + k · ∫ d + j · ∫ s     (from the layer's start to t)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // "2:30" → 150, "1:02.5" → 62.5, 90 → 90
@@ -56,6 +59,31 @@ function integrate(pts, t0, t1) {
   return sum;
 }
 
+// Value just *before* t (the left side of a step)
+function valueLeft(pts, t) {
+  if (!pts.length) return 0;
+  if (t <= pts[0].t) return pts[0].v;
+  let i = 0;
+  while (i + 1 < pts.length && pts[i + 1].t < t) i++;
+  const a = pts[i], b = pts.find(p => p.t >= t);
+  if (!b) return a.v;
+  if (b.t === a.t) return b.v;
+  return a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+}
+
+// wa·A(t) + wb·B(t) as one piecewise-linear curve (keeps steps from either)
+function combineCurves(a, wa, b, wb) {
+  const ts = [...new Set([...a.map(p => p.t), ...b.map(p => p.t)])].sort((x, y) => x - y);
+  const out = [];
+  for (const t of ts) {
+    const left  = wa * valueLeft(a, t) + wb * valueLeft(b, t);
+    const right = wa * valueAt(a, t)   + wb * valueAt(b, t);
+    out.push({ t, v: left });
+    if (right !== left) out.push({ t, v: right });
+  }
+  return out.length ? out : [{ t: 0, v: 0 }];
+}
+
 // Replace everything after t with a move from the current value to v over `dur`
 function rampTo(pts, t, v, dur) {
   const cur = valueAt(pts, t);
@@ -68,8 +96,16 @@ function rampTo(pts, t, v, dur) {
 // ── Compile ───────────────────────────────────────────────────────────────────
 function compileScore(score, nSounds = 5) {
   const errors = [];
-  const groups = (score && Array.isArray(score.groups) && score.groups.length)
-    ? score.groups.map(String) : ['A', 'B', 'C', 'D'];
+  // groups: a number (3 → A, B, C) or a list of names; default 4
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let groups = ['A', 'B', 'C', 'D'];
+  if (score && typeof score.groups === 'number') {
+    const n = Math.max(1, Math.min(26, Math.floor(score.groups)));
+    if (n !== score.groups) errors.push(`groups: ${score.groups} → ${n}`);
+    groups = LETTERS.slice(0, n).split('');
+  } else if (score && Array.isArray(score.groups) && score.groups.length) {
+    groups = score.groups.map(String);
+  }
 
   const expandGroups = (g, i) => {
     if (g === undefined || g === 'all' || g === '*') return groups;
@@ -91,10 +127,17 @@ function compileScore(score, nSounds = 5) {
   const active = {};                         // group → Map(sound → layer)
   const groupRatio = {};                     // last ratio set per group
   groups.forEach(g => { active[g] = new Map(); groupRatio[g] = 1; });
+  let spread = [{ t: 0, v: 0 }];             // spread − 1, over the whole piece
 
   for (const e of events) {
     const gs = expandGroups(e.groups, e.i);
     const fade = Math.max(0, +(e.fade ?? 0));
+
+    // Spread is piece-wide: it sets how far apart the groups drift
+    if (e.spread !== undefined) {
+      spread = rampTo(spread, e.t, +e.spread - 1, Math.max(0, +(e.glide ?? 0)));
+      if (e.play === undefined && e.stop === undefined && e.ratio === undefined && e.level === undefined) continue;
+    }
 
     if (e.play !== undefined) {
       const n = +e.play;
@@ -104,7 +147,7 @@ function compileScore(score, nSounds = 5) {
         if (active[g].has(n)) { errors.push(`event ${e.i + 1}: sound ${n} already playing in ${g}`); continue; }
         const level = e.level ?? 1;
         const L = {
-          id: `${g}${n}@${e.t}`, group: g, sound: n, start: e.t, stop: Infinity,
+          id: `${g}${n}@${e.t}`, group: g, gi: groups.indexOf(g), sound: n, start: e.t, stop: Infinity,
           gain:  [{ t: e.t, v: 0 }, { t: e.t + Math.max(fade, 0.02), v: level }],
           drift: [{ t: e.t, v: groupRatio[g] - 1 }],
         };
@@ -150,7 +193,7 @@ function compileScore(score, nSounds = 5) {
                             ...events.map(e => e.t + (+e.fade || 0) + (+e.glide || 0)));
   const end = isFinite(parseTime(score && score.end)) ? parseTime(score.end) : lastT;
 
-  return { title: (score && score.title) || 'Untitled', groups, layers, end, errors };
+  return { title: (score && score.title) || 'Untitled', groups, layers, spread, end, errors };
 }
 
 // ── Live override (the conductor's slider) ────────────────────────────────────
@@ -173,9 +216,15 @@ function effectiveDrift(L, overrides) {
 }
 
 // Loop position (seconds into the buffer) of the phone of rank k at score time t
-function layerPos(L, drift, rank, t, dur) {
-  const p = (t - L.start) + (rank - 1) * integrate(drift, L.start, t);
+function layerPos(L, drift, rank, t, dur, spread) {
+  const p = (t - L.start) + (rank - 1) * integrate(drift, L.start, t)
+          + (spread ? L.gi * integrate(spread, L.start, t) : 0);
   return ((p % dur) + dur) % dur;
+}
+
+// Playback-rate curve (minus 1) for phone `rank` of this layer's group
+function rateCurve(L, drift, rank, spread) {
+  return combineCurves(drift, rank - 1, spread || [{ t: 0, v: 0 }], L.gi);
 }
 
 // Round-robin group assignment: slot 0 → A/1, 1 → B/1, … G → A/2, …
