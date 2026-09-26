@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT'S GONNA RAIN — Ensemble · Conductor</title>
+<script>
+  try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+</script>
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="ensemble.css">
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.16.0/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.min.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <h1>It's Gonna Rain</h1>
+    <h2>Ensemble · Conductor</h2>
+  </div>
+  <div class="meta">
+    <span class="pill" id="netTxt">CONNECTING…</span>
+    <button class="theme-btn" id="themeBtn" onclick="themeChanged()">◐ &nbsp;Dark</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="cond-grid">
+
+    <!-- Join + roster -->
+    <section>
+      <div class="ctrl-title">Join</div>
+      <div class="join-card">
+        <div class="qr" id="qr"></div>
+        <div>
+          <div class="label">Room</div>
+          <div class="room-code" id="roomTxt">—</div>
+          <p class="hint" style="margin:0.6rem 0 0.3rem">Scan, pick a voice number, tap&nbsp;Join.</p>
+          <a class="join-link" id="joinLink" target="_blank" rel="noopener"></a>
+        </div>
+      </div>
+
+      <div class="ctrl-title" style="margin-top:1.6rem">
+        Performers · <span id="countTxt">0</span>
+      </div>
+      <table class="roster">
+        <thead><tr><th>Voice</th><th>Phone</th><th>RTT ms</th><th>Sync ms</th><th>Out lat ms</th><th></th></tr></thead>
+        <tbody id="rosterBody"></tbody>
+      </table>
+      <button class="btn btn-reset" style="margin-top:0.8rem" onclick="autoAssign()">⇢ &nbsp;Number voices 1…N</button>
+      <p class="hint" style="margin-top:0.5rem">Voice 1 plays at the original speed; each next voice drifts a little faster. Red rows share a voice number.</p>
+    </section>
+
+    <!-- Ring -->
+    <section>
+      <div class="ctrl-title">Playheads · all voices</div>
+      <canvas class="ring" id="ring"></canvas>
+    </section>
+
+    <!-- Controls -->
+    <section class="cond-controls">
+      <div>
+        <div class="ctrl-title">Sound</div>
+        <div class="sound-btns">
+          <button class="sound-btn" data-sound="1" onclick="selectSound(1)">1</button>
+          <button class="sound-btn" data-sound="2" onclick="selectSound(2)">2</button>
+          <button class="sound-btn" data-sound="3" onclick="selectSound(3)">3</button>
+          <button class="sound-btn" data-sound="4" onclick="selectSound(4)">4</button>
+          <button class="sound-btn" data-sound="5" onclick="selectSound(5)">5</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="ctrl-title">Transport</div>
+        <button class="btn btn-play"  id="btnPlay"  onclick="togglePlay()">▶ &nbsp;Start</button>
+        <button class="btn btn-phase" id="btnPhase" onclick="togglePhasing()" disabled>⏸ &nbsp;Pause phasing</button>
+        <button class="btn btn-reset" id="btnSync"  onclick="resync()" disabled>↺ &nbsp;Sync voices</button>
+        <div class="status">STATUS: <span id="statusTxt">STOPPED</span></div>
+      </div>
+
+      <div>
+        <div class="ctrl-title">Drift — Voice 2 speed</div>
+        <div class="ctrl-row">
+          <div class="ctrl-hd">
+            <span class="cn">Ratio</span>
+            <span class="cv" id="ratioVal">1.0020</span>
+          </div>
+          <input type="range" class="r2" id="ratioCtrl" min="1.0" max="1.03"
+            step="0.0001" value="1.002" oninput="updateRatio()">
+        </div>
+        <p class="hint" style="margin-top:0.6rem">Voice k runs at 1&nbsp;+&nbsp;(k−1)·(ratio−1). Start lands 1.5&nbsp;s after you press; other changes 0.4&nbsp;s after.</p>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="net.js"></script>
+<script src="conductor.js"></script>
+</body>
+</html>

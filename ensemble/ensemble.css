@@ -1,0 +1,78 @@
+
+/* ── Shared ─────────────────────────────────────────────────────────────────── */
+body { min-height: 100dvh; }
+
+.wrap { width: 100%; max-width: 1100px; margin: 0 auto; padding: 1.2rem 16px 2rem; }
+
+.label {
+  font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--mid); margin-bottom: 0.5rem;
+}
+
+.pill {
+  display: inline-block; font-size: 0.68rem; letter-spacing: 0.12em;
+  padding: 0.2rem 0.55rem; border: 1px solid var(--dim); color: var(--mid);
+}
+.pill.ok { color: var(--accent); border-color: var(--accent); }
+
+.ring { width: 100%; aspect-ratio: 1; display: block; }
+
+input[type=number] {
+  font: inherit; background: var(--well); color: var(--fg);
+  border: 1px solid var(--dim); padding: 0.5rem; width: 5rem; text-align: center;
+  font-size: 1.4rem;
+}
+
+/* ── Conductor ──────────────────────────────────────────────────────────────── */
+.cond-grid {
+  display: grid; gap: 1.6rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px;
+}
+@media (max-width: 900px) { .cond-grid { grid-template-columns: 1fr; } }
+
+.join-card { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+.join-card .qr { width: 160px; height: 160px; background: #fff; padding: 4px; flex: none; }
+.join-card .qr svg { width: 100%; height: 100%; display: block; }
+.room-code {
+  font-family: 'Roboto Condensed', sans-serif; font-weight: 100;
+  font-size: 3rem; letter-spacing: 0.2em; line-height: 1;
+}
+.join-link { font-size: 0.7rem; color: var(--cp); word-break: break-all; }
+
+table.roster { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.roster th, .roster td { text-align: left; padding: 0.35rem 0.4rem; border-bottom: 1px solid var(--dim); }
+.roster th { font-weight: 400; color: var(--mid); letter-spacing: 0.1em; font-size: 0.6rem; text-transform: uppercase; }
+.roster tr.dupe td { color: var(--c2); }
+.roster td.empty { color: var(--mid); padding: 1rem 0.4rem; }
+.swatch { display: inline-block; width: 0.6rem; height: 0.6rem; margin-right: 0.4rem; vertical-align: middle; }
+
+.cond-controls { display: flex; flex-direction: column; gap: 1.4rem; }
+
+/* ── Performer ──────────────────────────────────────────────────────────────── */
+.perf { max-width: 520px; display: flex; flex-direction: column; gap: 1.2rem; }
+
+.perf-top { display: flex; justify-content: space-between; align-items: center; }
+
+.voice-big {
+  font-family: 'Roboto Condensed', sans-serif; font-weight: 100;
+  font-size: clamp(5rem, 30vw, 9rem); line-height: 0.9; text-align: center;
+}
+
+.voice-pick { display: flex; gap: 0.5rem; align-items: center; justify-content: center; }
+.voice-pick button {
+  font: inherit; font-size: 1.4rem; width: 3rem; height: 3rem;
+  background: var(--surface); color: var(--fg); border: 1px solid var(--dim); cursor: pointer;
+}
+
+.status-line { text-align: center; font-size: 0.8rem; letter-spacing: 0.14em; }
+.stats-line  { text-align: center; font-size: 0.62rem; color: var(--mid); min-height: 1em; }
+
+.perf .ring { max-width: 340px; margin: 0 auto; }
+
+.join-screen { display: flex; flex-direction: column; gap: 1.2rem; align-items: stretch; }
+.join-screen .btn { font-size: 1rem; padding: 1.1rem; }
+.hint { font-size: 0.7rem; color: var(--mid); line-height: 1.6; }
+
+.only-joined { display: none !important; }
+body.joined .only-joined { display: flex !important; }
+body.joined .join-screen { display: none; }

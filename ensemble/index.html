@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<title>IT'S GONNA RAIN — Ensemble</title>
+<script>
+  try { if (localStorage.getItem('theme') !== 'light') document.documentElement.dataset.theme = 'dark'; } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+</script>
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="ensemble.css">
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.16.0/dist/mqtt.min.js"></script>
+</head>
+<body>
+
+<div class="wrap perf">
+
+  <div class="perf-top">
+    <div>
+      <div class="label">It's Gonna Rain · Ensemble</div>
+      <div class="label" style="margin:0">Room <span id="roomTxt" style="color:var(--fg)">—</span></div>
+    </div>
+    <button class="theme-btn" id="themeBtn" onclick="themeChanged()">◐</button>
+  </div>
+
+  <!-- Before joining -->
+  <div class="join-screen">
+    <div>
+      <div class="label" style="text-align:center">Your voice</div>
+      <div class="voice-pick">
+        <button onclick="document.getElementById('voiceInput').stepDown()">−</button>
+        <input type="number" id="voiceInput" min="1" max="99" value="1" inputmode="numeric">
+        <button onclick="document.getElementById('voiceInput').stepUp()">+</button>
+      </div>
+    </div>
+    <button class="btn btn-play" id="joinBtn" onclick="join()">▶ &nbsp;Join</button>
+    <p class="hint">
+      Turn the volume up and the silent switch off. Keep this page open with the screen on.
+      No Bluetooth speakers: they add a quarter of a second of delay.
+    </p>
+  </div>
+
+  <!-- After joining -->
+  <div class="only-joined" style="flex-direction:column; gap:0.8rem">
+    <div class="label" style="text-align:center; margin:0">Voice</div>
+    <div class="voice-big" id="voiceBig">1</div>
+    <div class="voice-pick">
+      <button onclick="nudgeVoice(-1)">−</button>
+      <button onclick="nudgeVoice(1)">+</button>
+    </div>
+    <div class="status-line" id="statusTxt">CONNECTING…</div>
+    <div class="stats-line" id="statsTxt"></div>
+    <button class="btn btn-reset" onclick="testSound()">♪ &nbsp;Test sound</button>
+  </div>
+
+  <canvas class="ring only-joined" id="ring"></canvas>
+
+  <div class="ctrl-group">
+    <div class="ctrl-row">
+      <div class="ctrl-hd"><span class="cn">Volume</span><span class="cv" id="volVal">0.80</span></div>
+      <input type="range" id="volCtrl" min="0" max="1" step="0.01" value="0.8" oninput="updateVol()">
+    </div>
+    <div class="ctrl-row only-joined" style="flex-direction:column">
+      <div class="ctrl-hd"><span class="cn">Latency trim</span><span class="cv" id="trimVal">0 ms</span></div>
+      <input type="range" class="r2" id="trimCtrl" min="-100" max="250" step="1" value="0" oninput="updateTrim()">
+      <p class="hint">If this phone sounds late against the others, move right.</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="net.js"></script>
+<script src="performer.js"></script>
+</body>
+</html>
