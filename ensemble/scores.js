@@ -38,18 +38,18 @@ const SCORES = [
     groups: 4,
     events: [
       // Sound 1 in A, B and C: each group spreads slowly, groups stay together
-      { at: '0:00', groups: 'AB',  play: 1, ratio: 1.020, fade: 5 },
+      { at: '0:00', groups: 'AB',  play: 1, ratio: 1.01, fade: 5 },
       // The groups start drifting against each other too
       { at: '0:30', spread: 1.04, glide: 30 },
       // At 2:00 sound 2 fades in on D over a minute…
       { at: '1:00', groups: 'C',    play: 3, ratio: 1.010, fade: 60 },
-      { at: '1:00', groups: 'D',    play: 3, ratio: 1.020, fade: 60 },
+      { at: '1:00', groups: 'D',    play: 5, ratio: 1.020, fade: 60 },
       // …while A, B, C crossfade from sound 1 to sound 2 over the same minute
-      { at: '1:30', groups: 'AB',  stop: 1, fade: 60 },
-      { at: '1:30', groups: 'A',  play: 5, ratio: 1.004, fade: 60 },
+      { at: '1:15', groups: 'AB',  stop: 1, fade: 60 },
+      { at: '2:15', groups: 'A',  play: 5, ratio: 1.004, fade: 60 },
       // Everyone accelerates inside their group, then everything freezes
-      { at: '4:00', groups: 'all',  ratio: 1.015, glide: 20 },
-      { at: '5:00', groups: 'all',  ratio: 1.000, glide: 30 },
+      { at: '3:00', groups: 'all',  ratio: 1.03, glide: 20 },
+      { at: '4:00', groups: 'all',  ratio: 1.000, glide: 30 },
       { at: '5:00', spread: 1.000, glide: 30 },
       // Sound 3 enters on A and C only, frozen
       { at: '5:30', groups: 'AC',   play: 3, fade: 10, level: 0.8 },
