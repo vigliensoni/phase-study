@@ -43,8 +43,9 @@ const SCORES = [
       { at: '0:30', spread: 1.04, glide: 30 },
       // At 2:00 sound 2 fades in on D over a minute…
       { at: '1:00', groups: 'C',    play: 3, ratio: 1.010, fade: 60 },
+      { at: '1:00', groups: 'D',    play: 3, ratio: 1.020, fade: 60 },
       // …while A, B, C crossfade from sound 1 to sound 2 over the same minute
-      { at: '1:30', groups: 'ABC',  stop: 1, fade: 60 },
+      { at: '1:30', groups: 'AB',  stop: 1, fade: 60 },
       { at: '1:30', groups: 'A',  play: 5, ratio: 1.004, fade: 60 },
       // Everyone accelerates inside their group, then everything freezes
       { at: '4:00', groups: 'all',  ratio: 1.015, glide: 20 },
