@@ -45,7 +45,9 @@ table.roster { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
 .roster tr.dupe td { color: var(--c2); }
 .roster td.empty { color: var(--mid); padding: 1rem 0.4rem; }
 .roster tr.pinged td { background: var(--accent); color: var(--on-accent); }
-#calibBtn { margin-top: 0.5rem; }
+#calibBtn, #standbyBtn { margin-top: 0.5rem; }
+#standbyBtn.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.roster tr.asleep td { color: var(--c2); opacity: 0.75; }
 .swatch { display: inline-block; width: 0.6rem; height: 0.6rem; margin-right: 0.4rem; vertical-align: middle; }
 
 .cond-controls { display: flex; flex-direction: column; gap: 1.4rem; }
@@ -85,6 +87,22 @@ body:not(.score-mode) .score-only { display: none !important; }
 /* Test sound / calibration turn: flash the whole screen */
 body { transition: background 0.35s; }
 body.pinged { background: var(--accent); transition: none; }
+
+/* Standby: pure black over everything, with one status dot */
+.standby-screen {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: #000; transition: background 0.35s;
+  align-items: flex-end; justify-content: center; padding-bottom: 12vh;
+}
+body.standby .standby-screen { display: flex; }
+body.standby.pinged .standby-screen { background: var(--accent); transition: none; }
+.standby-dot { width: 10px; height: 10px; border-radius: 50%; background: #444; }
+.standby-dot[data-state="ok"]   { background: #3a7d1e; }
+.standby-dot[data-state="wait"] { background: #b8860b; }
+.standby-dot[data-state="off"]  { background: #b3261e; }
+
+/* Keep-awake fallback video: must be "visible" to play, so make it tiny */
+.keep-video { position: fixed; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; bottom: 0; left: 0; }
 
 .mode-tabs { display: inline-flex; margin-right: 0.6rem; }
 .mode-btn {

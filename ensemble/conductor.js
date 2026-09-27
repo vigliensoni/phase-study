@@ -25,6 +25,7 @@ const performerURL = (() => {
 // ── State of the piece (published retained, so late joiners get it) ──────────
 let S = {
   v: 1, mode: 'free', epoch: null, playing: false, stopAt: 0,
+  standby: false, // every phone shows a black screen (stays awake and connected)
   // free mode
   sound: 1, T0: 0, tA: 0, phiA: 0, ratio: 1.002, paused: false,
   // score mode
@@ -34,7 +35,15 @@ let adoptedRetained = false; // after a reload, pick up where the room was
 let durations = {};          // sound n → seconds (for the ring display)
 let comp = compileScore(S.score, SOUNDS.length);
 
-const roster = new Map();    // id → { voice, assign, rtt, jitter, lat, ready, first, last }
+const roster = new Map();    // id → { voice, assign, rtt, jitter, lat, ready, first, last, gone }
+
+// A phone that stops reporting (screen locked, app switched, tab closed) is
+// kept in the roster as "asleep" so you can see which one to go and wake;
+// it's dropped only after a long silence.
+const ASLEEP_MS = 8000, FORGET_MS = 30 * 60 * 1000;
+const awake = p => !p.gone && localNow() - p.last < ASLEEP_MS;
+const awakeIds = () => [...roster.entries()].filter(([, p]) => awake(p))
+  .sort((a, b) => a[1].first - b[1].first).map(e => e[0]);
 
 // ── Broker ────────────────────────────────────────────────────────────────────
 const client = connectBroker('cond-' + randomId());
@@ -58,9 +67,9 @@ client.on('message', (topic, buf) => {
   if (!m) return;
 
   if (topic === T.presence) {
-    if (m.gone) { roster.delete(m.id); return; }
     const prev = roster.get(m.id);
-    roster.set(m.id, { ...m, first: prev ? prev.first : localNow(), last: localNow() });
+    if (m.gone) { if (prev) prev.gone = true; return; } // broker's last will: connection lost
+    roster.set(m.id, { ...m, gone: false, first: prev ? prev.first : localNow(), last: localNow() });
     if (!prev && S.mode === 'score') ensureAssigned();
     return;
   }
@@ -155,7 +164,7 @@ function selectSound(n) {
 
 function autoAssign() {
   if (S.mode === 'score') return rebalance(true);
-  const ids = [...roster.entries()].sort((a, b) => a[1].first - b[1].first).map(e => e[0]);
+  const ids = awakeIds();
   const map = {};
   ids.forEach((id, i) => { map[id] = i + 1; });
   client.publish(T.assign, JSON.stringify({ map }));
@@ -169,10 +178,18 @@ function autoAssign() {
 let calib = null; // { t0, gap, order: [id…] }
 
 function calibrate() {
-  const order = rosterRows().map(r => r.id);
+  const order = rosterRows().filter(r => awake(r.p)).map(r => r.id);
   if (!order.length) return;
   calib = { t0: localNow() + LEAD_START, gap: CALIB_GAP, order };
   client.publish(T.calib, JSON.stringify(calib));
+}
+
+// ── Standby ───────────────────────────────────────────────────────────────────
+// Black out every phone between pieces. Carried in the retained state, so
+// phones that join or reload while it's on go straight to black.
+function toggleStandby() {
+  S.standby = !S.standby;
+  publishState();
 }
 
 // Highlight the phone whose turn it is, and show progress on the button
@@ -234,7 +251,7 @@ const overriding = () => {
 
 // Deal every phone present into groups, in join order: A, B, C, D, A, B, …
 function rebalance(publish) {
-  const ids = [...roster.entries()].sort((a, b) => a[1].first - b[1].first).map(e => e[0]);
+  const ids = awakeIds();
   S.assign = {};
   ids.forEach((id, i) => { S.assign[id] = slotToAssign(i, comp.groups); });
   S.nextSlot = ids.length;
@@ -287,6 +304,9 @@ function refreshUI() {
   ph.textContent = S.paused ? '▶   Resume phasing' : '⏸   Pause phasing';
   ph.classList.toggle('paused', S.paused);
   document.getElementById('btnSync').disabled = !S.playing;
+  const sb = document.getElementById('standbyBtn');
+  sb.textContent = S.standby ? '◼   Standby: on' : '◻   Standby: off';
+  sb.classList.toggle('on', !!S.standby);
   document.querySelectorAll('.sound-btn').forEach(b =>
     b.classList.toggle('active', +b.dataset.sound === S.sound));
 
@@ -334,27 +354,30 @@ function rosterRows() {
 
 function renderRoster() {
   const now = localNow();
-  for (const [id, p] of roster) if (now - p.last > 12000) roster.delete(id);
+  for (const [id, p] of roster) if (now - p.last > FORGET_MS) roster.delete(id);
   const score = S.mode === 'score';
   const rows = rosterRows();
+  const up = rows.filter(r => awake(r.p)), asleep = rows.length - up.length;
   const labels = rows.map(r => r.l.txt);
   const dupes = new Set(labels.filter((v, i) => labels.indexOf(v) !== i));
 
-  document.getElementById('countTxt').textContent = rows.length;
+  document.getElementById('countTxt').textContent = up.length + (asleep ? ` · ${asleep} asleep` : '');
   document.getElementById('groupCounts').textContent = score
-    ? comp.groups.map(g => `${g} ${rows.filter(r => S.assign[r.id] && S.assign[r.id][0] === g).length}`).join(' · ')
+    ? comp.groups.map(g => `${g} ${up.filter(r => S.assign[r.id] && S.assign[r.id][0] === g).length}`).join(' · ')
     : '';
   document.getElementById('rosterBody').innerHTML = rows.length ? rows.map(({ id, p, l }) => `
-    <tr class="${dupes.has(l.txt) ? 'dupe' : ''}" data-id="${id}">
+    <tr class="${dupes.has(l.txt) ? 'dupe' : ''} ${awake(p) ? '' : 'asleep'}" data-id="${id}">
       <td><span class="swatch" style="background:${l.color}"></span>${l.txt}</td>
       <td>${id.slice(0, 4)}</td>
       <td>${p.rtt == null ? '—' : Math.round(p.rtt)}</td>
       <td>${p.jitter == null ? '—' : '±' + p.jitter.toFixed(1)}</td>
       <td>${p.lat == null ? '—' : Math.round(p.lat)}</td>
-      <td>${p.ready ? 'ready' : 'loading'}</td>
+      <td>${!awake(p) ? `asleep ${fmtAgo(now - p.last)}` : p.ready ? 'ready' : 'loading'}</td>
     </tr>`).join('')
     : '<tr><td colspan="6" class="empty">Waiting for phones… scan the code to join.</td></tr>';
 }
+
+const fmtAgo = ms => ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.floor(ms / 60000)} min`;
 
 // ── Timeline (score mode) ─────────────────────────────────────────────────────
 const soundHue = n => [0, 95, 20, 200, 285, 335][n] ?? 45;
@@ -479,7 +502,7 @@ function renderLoop() {
     const now = localNow(), dur = durations[S.sound];
     let hands = [];
     if (S.playing && dur && now >= S.T0) {
-      const vs = [...new Set([1, ...[...roster.values()].map(p => p.voice)])].sort((a, b) => a - b);
+      const vs = [...new Set([1, ...[...roster.values()].filter(awake).map(p => p.voice)])].sort((a, b) => a - b);
       hands = vs.map(k => ({ pos: voicePos(S, k, now, dur) / dur, color: voiceColor(k), width: k === 1 ? 3 : 2 }));
     }
     drawRing(canvas, hands);

@@ -19,6 +19,7 @@ scores.js        The scores (edit this to write your own)
 performer.js     Clock sync, scheduling, drift correction, audio
 conductor.js     Shared clock, state of the piece, roster, controls
 ensemble.css     Layout (on top of ../style.css)
+keepawake.mp4    3 KB silent video: keeps screens on where Wake Lock isn't available
 ```
 
 Sounds come from `../assets/` (the same list as the single-browser study).
@@ -31,6 +32,33 @@ Sounds come from `../assets/` (the same list as the single-browser study).
 4. **Start** lands 1.5 s after you press it. The ratio slider and **Pause phasing** take effect 0.4 s after you use them, on every phone at the same moment. **Sync voices** restarts everyone aligned.
 
 Anyone joining late, or reloading, jumps straight to where their voice should be. The conductor can reload too; it picks the piece back up from the broker.
+
+## Keeping phones awake
+
+A web page can't stay connected while the phone is locked: iOS suspends it within seconds (Android a little later), and the phone drops off the broker. So the phones must never lock, and the page works hard at that:
+
+- **Wake lock.** On Join, the page asks the phone to keep the screen on. The system can take that back (low battery, a notification, a call), so the page asks again whenever it's released, and checks every 10 s.
+- **Fallback.** Where Wake Lock isn't available or is refused, the page plays `keepawake.mp4`, a tiny muted looping video, which keeps most phones awake.
+- **Standby.** Between pieces, press **Standby** on the conductor: every phone goes black except for a small status dot (green connected, amber syncing, red offline). Phones stay awake, connected and synced, and still play and flash, so calibration and the next piece work as usual. Black pixels use almost no power on OLED screens. A performer can tap the black screen to see the normal view for 5 s. Standby is part of the piece's state, so phones that join or reload while it's on go straight to black.
+- **Asleep phones.** A phone that stops reporting (locked, app switched, tab closed) stays in the Performers table marked *asleep*, with how long ago it was last seen, so you know which one to go and wake. Unlocking it is enough: it resyncs and rejoins without another tap. Asleep phones are left out of calibration rounds and of voice/group dealing, and are forgotten after 30 minutes.
+
+A phone that someone locks by hand will still disconnect; the page can only catch it quickly. The setup checklist below prevents most of it.
+
+### Setup checklist for performers
+
+- **iPhone**
+  - Settings → Display & Brightness → **Auto-Lock: Never**.
+  - Turn **Low Power Mode off** (it blocks the wake lock).
+  - For shows, use **Guided Access** (Settings → Accessibility → Guided Access): it locks the phone into the page, blocks accidental swipes and buttons, and has its own display auto-lock setting (set it to *Never*). Triple-click the side button on the page to start it.
+- **Android**
+  - Settings → Display → **Screen timeout**: the maximum.
+  - Turn **Battery saver off**.
+  - For shows, use **app pinning** (usually Settings → Security, sometimes under *More security settings*; the name and place vary by brand) to keep the phone on the page.
+- **Everyone**
+  - Plug in if possible; otherwise start with a full battery.
+  - Turn on **Do Not Disturb**, so calls and notifications don't cover the page (or take back the wake lock).
+  - Volume up, silent switch off, no Bluetooth speakers.
+  - Join, then leave the page open in front: don't switch apps or lock the screen.
 
 ## Calibrating levels
 
@@ -128,7 +156,7 @@ Then use `conductor.html?broker=wss://your.server/mqtt`. A broker on the same lo
 
 ## Practical notes
 
-- **iPhone:** the page asks iOS to play through the silent switch, but check the volume. Keep the screen on (the page requests a wake lock; Low Power Mode can block it).
+- **iPhone:** the page asks iOS to play through the silent switch, but check the volume. See *Keeping phones awake* for the screen.
 - **Bluetooth speakers** add 150–300 ms. Avoid them, or use the latency trim.
 - **Captive-portal Wi-Fi** (like campus guest networks) sometimes blocks WebSockets. A phone hotspot or cellular data works as a fallback.
 - **Monitor on the laptop:** open the performer page in another tab and join as voice 1.

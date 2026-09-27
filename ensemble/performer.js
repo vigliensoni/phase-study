@@ -349,9 +349,39 @@ function connect() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // JOIN (needs a tap: browsers only start audio after a user gesture)
 // ═══════════════════════════════════════════════════════════════════════════════
-let wakeLock = null;
+// ── Keep the screen on ────────────────────────────────────────────────────────
+// A locked phone drops off the broker, so the screen must never sleep. The
+// system can take the wake lock back (low battery, a notification, a call),
+// so ask again whenever it's released and check periodically. Browsers
+// without Wake Lock, or where the request fails, fall back to a tiny muted
+// looping video, which also keeps most phones awake.
+let wakeLock = null, wakePending = false, keepVideo = null;
+
 async function keepAwake() {
-  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+  if (!joined || document.visibilityState !== 'visible') return;
+  if (wakeLock && !wakeLock.released) return;
+  if ('wakeLock' in navigator && !wakePending) {
+    wakePending = true;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; setTimeout(keepAwake, 1000); });
+      wakePending = false;
+      return;
+    } catch (e) { wakePending = false; }
+  }
+  playKeepVideo();
+}
+
+function playKeepVideo() {
+  if (!keepVideo) {
+    keepVideo = document.createElement('video');
+    keepVideo.src = 'keepawake.mp4';
+    keepVideo.muted = true; keepVideo.loop = true;
+    keepVideo.setAttribute('playsinline', ''); keepVideo.setAttribute('muted', '');
+    keepVideo.className = 'keep-video';
+    document.body.appendChild(keepVideo);
+  }
+  if (keepVideo.paused) keepVideo.play().catch(() => {});
 }
 
 async function join() {
@@ -373,8 +403,8 @@ async function join() {
   unlock.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
   unlock.connect(ctx.destination); unlock.start();
 
-  keepAwake();
   joined = true;
+  keepAwake();
   document.body.classList.add('joined');
   setVoice(+document.getElementById('voiceInput').value || voice);
 
@@ -386,6 +416,7 @@ async function join() {
   setInterval(sendPresence, 3000);
   setInterval(checkDrift, 4000);
   setInterval(renderStatus, 1000);
+  setInterval(keepAwake, 10000);
   requestAnimationFrame(renderLoop);
 }
 
@@ -393,6 +424,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !ctx) return;
   ctx.resume();
   keepAwake();
+  sendPresence(); // tell the conductor we're back (clears "asleep")
   for (let i = 0; i < 6; i++) setTimeout(sendPing, i * 150);
   setTimeout(checkDrift, 1200);
 });
@@ -519,6 +551,7 @@ function renderLoop() {
   if (S && S.mode === 'score') hands = scoreHands(S);
   drawRing(canvas, hands);
   renderIdentity();
+  renderStandby();
   requestAnimationFrame(renderLoop);
 }
 
@@ -541,6 +574,21 @@ function scoreHands(S) {
   if (run.rank !== 1) hands.unshift({ pos: layerPos(best.L, best.drift, run.rank, st, dur, sp) / dur, color: col, width: 4 });
   else hands[0] = { ...hands[0], color: col, width: 4 };
   return hands;
+}
+
+// ── Standby: the conductor blacks out every screen between pieces ─────────────
+// Phones stay awake, connected and synced (and still play and flash); only the
+// display goes dark. Tapping the black screen shows the normal view briefly.
+let peekUntil = 0;
+function peek() { peekUntil = localNow() + 5000; }
+
+function renderStandby() {
+  const on = !!(state && state.standby) && joined && localNow() > peekUntil;
+  document.body.classList.toggle('standby', on);
+  if (!on) return;
+  const dot = document.getElementById('standbyDot');
+  const cls = !client || !client.connected ? 'off' : !synced ? 'wait' : 'ok';
+  if (dot.dataset.state !== cls) dot.dataset.state = cls;
 }
 
 // Big label: voice number (free mode) or group letter + phone number (score mode)
