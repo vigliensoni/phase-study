@@ -161,6 +161,34 @@ function autoAssign() {
   client.publish(T.assign, JSON.stringify({ map }));
 }
 
+// ── Level calibration ─────────────────────────────────────────────────────────
+// Every phone plays its test sound in turn, CALIB_GAP apart, in roster order,
+// so the room can hear each one alone and set its volume. One message carries
+// the start time and the order; each phone schedules its own turn on the
+// shared clock, so the gaps stay even whatever the network does.
+let calib = null; // { t0, gap, order: [id…] }
+
+function calibrate() {
+  const order = rosterRows().map(r => r.id);
+  if (!order.length) return;
+  calib = { t0: localNow() + LEAD_START, gap: CALIB_GAP, order };
+  client.publish(T.calib, JSON.stringify(calib));
+}
+
+// Highlight the phone whose turn it is, and show progress on the button
+function renderCalib() {
+  const btn = document.getElementById('calibBtn');
+  const i = calib ? Math.floor((localNow() - calib.t0) / calib.gap) : -1;
+  const active = calib && i < calib.order.length && localNow() < calib.t0 + calib.order.length * calib.gap;
+  const id = active && i >= 0 ? calib.order[i] : null;
+  document.querySelectorAll('#rosterBody tr[data-id]').forEach(tr =>
+    tr.classList.toggle('pinged', tr.dataset.id === id));
+  const txt = !active ? '♪   Calibrate levels'
+    : i < 0 ? '♪   Calibrating…' : `♪   Calibrating ${i + 1} / ${calib.order.length}`;
+  if (btn.textContent !== txt) btn.textContent = txt;
+  if (!active) calib = null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SCORE MODE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -291,19 +319,24 @@ function renderStatus() {
   document.getElementById('statusTxt').textContent = txt;
 }
 
-function renderRoster() {
-  const now = localNow();
-  for (const [id, p] of roster) if (now - p.last > 12000) roster.delete(id);
+// Roster rows in display order: by voice (free) or group + phone (score)
+function rosterRows() {
   const score = S.mode === 'score';
-
   const label = (id, p) => {
     if (!score) return { txt: p.voice, color: voiceColor(p.voice), sort: p.voice * 1000 };
     const a = S.assign[id];
     if (!a) return { txt: '…', color: themeColor('--mid'), sort: 1e9 };
     return { txt: a[0] + a[1], color: groupColor(a[0], comp.groups), sort: comp.groups.indexOf(a[0]) * 1000 + a[1] };
   };
-  const rows = [...roster.entries()].map(([id, p]) => ({ id, p, l: label(id, p) }))
+  return [...roster.entries()].map(([id, p]) => ({ id, p, l: label(id, p) }))
     .sort((a, b) => a.l.sort - b.l.sort || a.p.first - b.p.first);
+}
+
+function renderRoster() {
+  const now = localNow();
+  for (const [id, p] of roster) if (now - p.last > 12000) roster.delete(id);
+  const score = S.mode === 'score';
+  const rows = rosterRows();
   const labels = rows.map(r => r.l.txt);
   const dupes = new Set(labels.filter((v, i) => labels.indexOf(v) !== i));
 
@@ -312,7 +345,7 @@ function renderRoster() {
     ? comp.groups.map(g => `${g} ${rows.filter(r => S.assign[r.id] && S.assign[r.id][0] === g).length}`).join(' · ')
     : '';
   document.getElementById('rosterBody').innerHTML = rows.length ? rows.map(({ id, p, l }) => `
-    <tr class="${dupes.has(l.txt) ? 'dupe' : ''}">
+    <tr class="${dupes.has(l.txt) ? 'dupe' : ''}" data-id="${id}">
       <td><span class="swatch" style="background:${l.color}"></span>${l.txt}</td>
       <td>${id.slice(0, 4)}</td>
       <td>${p.rtt == null ? '—' : Math.round(p.rtt)}</td>
@@ -451,6 +484,7 @@ function renderLoop() {
     }
     drawRing(canvas, hands);
   }
+  renderCalib();
   requestAnimationFrame(renderLoop);
 }
 

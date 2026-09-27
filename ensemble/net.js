@@ -25,6 +25,7 @@ const TOPIC_BASE = 'cart346/c04-ensemble';
 
 const LEAD_START  = 1500; // ms between pressing Start/Sync and the downbeat
 const LEAD_CHANGE = 400;  // ms between moving a control and it taking effect
+const CALIB_GAP   = 500;  // ms between phones during level calibration
 
 function topics(room) {
   const b = `${TOPIC_BASE}/${room}`;
@@ -34,6 +35,7 @@ function topics(room) {
     pong: id => `${b}/pong/${id}`,
     presence: `${b}/presence`, // performer heartbeat (roster)
     assign:   `${b}/assign`,   // conductor → performers: voice numbers
+    calib:    `${b}/calib`,    // conductor → performers: test-sound round, one phone at a time
   };
 }
 

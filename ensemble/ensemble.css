@@ -44,6 +44,8 @@ table.roster { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
 .roster th { font-weight: 400; color: var(--mid); letter-spacing: 0.1em; font-size: 0.6rem; text-transform: uppercase; }
 .roster tr.dupe td { color: var(--c2); }
 .roster td.empty { color: var(--mid); padding: 1rem 0.4rem; }
+.roster tr.pinged td { background: var(--accent); color: var(--on-accent); }
+#calibBtn { margin-top: 0.5rem; }
 .swatch { display: inline-block; width: 0.6rem; height: 0.6rem; margin-right: 0.4rem; vertical-align: middle; }
 
 .cond-controls { display: flex; flex-direction: column; gap: 1.4rem; }
@@ -79,6 +81,10 @@ body.joined .join-screen { display: none; }
 
 body.score-mode .free-only { display: none !important; }
 body:not(.score-mode) .score-only { display: none !important; }
+
+/* Test sound / calibration turn: flash the whole screen */
+body { transition: background 0.35s; }
+body.pinged { background: var(--accent); transition: none; }
 
 .mode-tabs { display: inline-flex; margin-right: 0.6rem; }
 .mode-btn {

@@ -32,6 +32,12 @@ Sounds come from `../assets/` (the same list as the single-browser study).
 
 Anyone joining late, or reloading, jumps straight to where their voice should be. The conductor can reload too; it picks the piece back up from the broker.
 
+## Calibrating levels
+
+Before the piece, press **Calibrate levels** on the conductor. Every phone plays its test sound in turn, 0.5 s apart, in the order of the Performers table (by voice, or by group and phone in score mode). Each phone flashes its screen on its turn, and its row lights up on the conductor, so the room can tell which one is sounding. Adjust each phone's **Volume** until they match, then press again for another round.
+
+The conductor sends one message with the start time and the order; each phone plays on its own turn using the shared clock, so the gaps stay even whatever the network does. A phone that hasn't finished syncing its clock, or gets the message after its turn has passed, sits that round out. Pressing the button again restarts the round from the first phone.
+
 ## Score mode
 
 Switch the conductor to **Score** to play a timed piece from `scores.js`.

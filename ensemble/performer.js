@@ -323,7 +323,7 @@ function connect() {
     topic: T.presence, payload: JSON.stringify({ id: myId, gone: true }), qos: 0, retain: false,
   });
   client.on('connect', () => {
-    client.subscribe([T.state, T.pong(myId), T.assign]);
+    client.subscribe([T.state, T.pong(myId), T.assign, T.calib]);
     // Burst of pings for a quick first estimate
     for (let i = 0; i < 15; i++) setTimeout(sendPing, i * 120);
     sendPresence();
@@ -342,6 +342,7 @@ function connect() {
       return applyState();
     }
     if (topic === T.assign && m.map && m.map[myId]) setVoice(m.map[myId]);
+    if (topic === T.calib) onCalib(m);
   });
 }
 
@@ -416,7 +417,14 @@ function nudgeVoice(d) { setVoice(voice + d); }
 function testSound() {
   if (!ctx) return;
   ctx.resume();
-  const t = ctx.currentTime + 0.02;
+  beep(ctx.currentTime + 0.02);
+  flash(0);
+  renderStatus();
+}
+
+// The test sound, at AudioContext time t. Goes through `master`, so the
+// Volume slider sets its level (that's what calibration adjusts).
+function beep(t) {
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.frequency.value = 880;
   g.gain.setValueAtTime(0, t);
@@ -424,7 +432,32 @@ function testSound() {
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
   o.connect(g).connect(master);
   o.start(t); o.stop(t + 0.45);
-  renderStatus();
+  return o;
+}
+
+// Flash the screen in `ms`, so the room can see which phone is sounding
+let flashTimer = null;
+function flash(ms) {
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => {
+    document.body.classList.add('pinged');
+    flashTimer = setTimeout(() => document.body.classList.remove('pinged'), 400);
+  }, Math.max(0, ms));
+}
+
+// Level calibration: the conductor sends the start time and the order of
+// phones; this phone plays its test sound on its own turn.
+let calibBeep = null;
+function onCalib(m) {
+  if (calibBeep) { try { calibBeep.stop(); } catch (e) {} calibBeep = null; }
+  const i = (m.order || []).indexOf(myId);
+  if (i < 0 || !joined || !synced) return;
+  const tShared = m.t0 + i * m.gap;
+  const at = ctxTimeFor(tShared);
+  if (at < ctx.currentTime - 0.1) return; // arrived after our turn: skip rather than play out of order
+  ctx.resume();
+  calibBeep = beep(Math.max(at, ctx.currentTime + 0.01));
+  flash(tShared - sharedNow());
 }
 
 function updateVol() {

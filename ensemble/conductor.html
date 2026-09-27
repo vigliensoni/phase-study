@@ -60,6 +60,8 @@
         <tbody id="rosterBody"></tbody>
       </table>
       <button class="btn btn-reset" style="margin-top:0.8rem" id="assignBtn" onclick="autoAssign()">⇢ &nbsp;Number voices 1…N</button>
+      <button class="btn btn-reset" id="calibBtn" onclick="calibrate()">♪ &nbsp;Calibrate levels</button>
+      <p class="hint" style="margin-top:0.5rem">Calibrate: each phone plays its test sound in turn, 0.5&nbsp;s apart, in the order above, and flashes its screen. Set each phone’s volume until they match; press again for another round.</p>
       <p class="hint free-only" style="margin-top:0.5rem">Voice 1 plays at the original speed; each next voice drifts a little faster. Red rows share a voice number.</p>
       <p class="hint score-only" style="margin-top:0.5rem">The score sets how many groups there are; phones are dealt into them as they join (A, B, C, A…), and re-dealt when you pick another score. <em>Ratio</em> drifts phones apart inside a group; <em>spread</em> drifts the groups apart. “Re-deal” evens out the groups after phones leave.</p>
     </section>
