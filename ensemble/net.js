@@ -16,6 +16,9 @@ const SOUNDS = [
   '../assets/3.wav',
   '../assets/4.wav',
   '../assets/5.wav',
+  '../assets/karateka.wav',
+  '../assets/door.wav',
+  '../assets/wall-thump.wav',
 ];
 
 // ── Config (overridable from the URL: ?room=ABCD&broker=wss://…) ─────────────

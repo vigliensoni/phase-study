@@ -59,15 +59,27 @@ const SCORES = [
   },
 
   {
-    title: 'Two groups (2 min)',
+    title: 'Three groups (2 min)',
+    groups: 3,
+    events: [
+      // Both groups in unison, then only the groups drift apart…
+      { at: '0:00', groups: 'AB', play: 4, ratio: 1.00, fade: 10 },
+      { at: '0:15', ratio: 1.05, glide: 20 },
+      { at: '0:15', groups: 'C', play: 7, ratio: 1.05, level: 0.125, fade: 30 },
+      // …then each group also blurs inside
+      { at: '0:50', ratio: 1.05, glide: 20 },
+      { at: '1:30', spread: 1.05, glide: 10 },
+      { at: '1:50', stop: 'all', fade: 10 },
+    ],
+  },
+
+  {
+    title: 'Bosque (2 min)',
     groups: 2,
     events: [
       // Both groups in unison, then only the groups drift apart…
-      { at: '0:00', play: 5, ratio: 1.02, fade: 3 },
-      { at: '0:10', spread: 1.02, glide: 20 },
-      // …then each group also blurs inside
-      { at: '0:50', ratio: 1.005, glide: 20 },
-      { at: '1:30', spread: 1.0, glide: 10 },
+      { at: '0:00', groups: 'A', play: 16, ratio: 1.1, fade: 10 },
+      { at: '0:10', groups: 'B', play: 16, ratio: 1.1, fade: 20 },
       { at: '1:50', stop: 'all', fade: 10 },
     ],
   },
