@@ -98,4 +98,23 @@ const SCORES = [
       { at: '0:55', groups: 'all', stop: 'all', fade: 5 },
     ],
   },
+  {
+    title: 'Mini composition',
+    groups: 2,
+    events: [
+      { at: '0:00', groups: 'A', play: 10, ratio: 1.0},
+      { at: '0:05', ratio: 1.01, glide: 30 },
+      { at: '0:30', groups: 'B', play: 10, ratio: 1.02, fade: 10 },
+      { at: '0:25', ratio: 1.05, glide: 30},
+      { at: '0:55', groups: 'all', stop: 'all', fade: 5 },
+    ],
+  },  
+    {
+    title: 'Sinewave',
+    groups: 2,
+    events: [
+      { at: '0:00', groups: 'A', play: 11, ratio: 1.0},
+      { at: '0:00', ratio: 1.1, glide: 10 },
+    ],
+  },  
 ];
