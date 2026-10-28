@@ -165,7 +165,7 @@ const SCORES = [
     groups: 4,
     events: [
       { at: '0:00', groups: 'A', play: 12, ratio: 1.01},
-      { at: '0:00', spread: 1.05 },
+      { at: '0:00', spread: 1.005 },
       { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
       { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
       { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
