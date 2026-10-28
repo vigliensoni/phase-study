@@ -22,6 +22,10 @@ const SOUNDS = [
   '../assets/cowbell-minipops.wav',
   '../assets/C03-S01-repeater_FAV.wav',
   '../assets/sine-110.wav',
+  '../assets/multitrack-test/a.wav',
+  '../assets/multitrack-test/b.wav',
+  '../assets/multitrack-test/c.wav',
+  '../assets/multitrack-test/d.wav'
 ];
 
 // ── Config (overridable from the URL: ?room=ABCD&broker=wss://…) ─────────────

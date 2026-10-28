@@ -116,5 +116,59 @@ const SCORES = [
       { at: '0:00', groups: 'A', play: 11, ratio: 1.0},
       { at: '0:00', ratio: 1.1, glide: 10 },
     ],
+  },
+        {
+    title: 'Multitrack test',
+    groups: 4,
+    events: [
+      { at: '0:00', groups: 'A', play: 12, ratio: 1.0},
+      { at: '0:00', spread: 1.0 },
+      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+    ],
+  },    
+      {
+    title: 'Multitrack test - spread 1.005',
+    groups: 4,
+    events: [
+      { at: '0:00', groups: 'A', play: 12, ratio: 1.0},
+      { at: '0:00', spread: 1.005 },
+      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+    ],
   },  
+      {
+    title: 'Multitrack test - spread 1.05',
+    groups: 4,
+    events: [
+      { at: '0:00', groups: 'A', play: 12, ratio: 1.0},
+      { at: '0:00', spread: 1.05 },
+      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+    ],
+  },  
+          {
+    title: 'Multitrack test ratio 1.01',
+    groups: 4,
+    events: [
+      { at: '0:00', groups: 'A', play: 12, ratio: 1.01},
+      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+    ],
+  },   
+            {
+    title: 'Multitrack test spread 1.005 ratio 1.01',
+    groups: 4,
+    events: [
+      { at: '0:00', groups: 'A', play: 12, ratio: 1.01},
+      { at: '0:00', spread: 1.05 },
+      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+    ],
+  },   
 ];
