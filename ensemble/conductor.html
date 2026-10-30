@@ -116,9 +116,11 @@
   </div>
 </div>
 
-<script src="net.js"></script>
-<script src="score-engine.js"></script>
-<script src="scores.js"></script>
-<script src="conductor.js"></script>
+<!-- Load the scripts with a fresh ?v= each time, so a phone never runs a
+     cached copy of old code (some servers let browsers keep files for an hour) -->
+<script>
+  for (const f of ['net.js', 'score-engine.js', 'scores.js', 'conductor.js'])
+    document.write('<script src="' + f + '?v=' + Date.now() + '"><\/script>');
+</script>
 </body>
 </html>
