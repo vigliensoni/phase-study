@@ -71,8 +71,11 @@ client.on('message', (topic, buf) => {
   if (topic === T.presence) {
     const prev = roster.get(m.id);
     if (m.gone) { if (prev) prev.gone = true; return; } // broker's last will: connection lost
-    roster.set(m.id, { ...m, gone: false, first: prev ? prev.first : localNow(), last: localNow() });
+    roster.set(m.id, { ...m, gone: false, first: prev ? prev.first : localNow(), last: localNow(),
+                       // the voice to hand back if this phone reloads: its latest real one
+                       given: m.fresh ? prev && prev.given : m.voice });
     if (!prev && S.mode === 'score') ensureAssigned();
+    if (S.mode !== 'score' && m.fresh) giveVoice(m.id);
     return;
   }
   if (topic === T.state && !adoptedRetained) {
@@ -163,6 +166,21 @@ function updateRatio() {
 function selectSound(n) {
   S.sound = soundId(n);
   if (S.playing) launch(); else publishState();
+}
+
+// Free mode: a phone that just joined gets the lowest voice no other phone has
+// (it keeps asking until it hears back, and always gets the same answer)
+function giveVoice(id) {
+  const p = roster.get(id);
+  if (!p.given) {
+    const used = new Set([...roster.entries()]
+      .filter(([k, q]) => k !== id && awake(q) && (!q.fresh || q.given)).map(([, q]) => q.voice));
+    let v = 1;
+    while (used.has(v)) v++;
+    p.given = v;
+  }
+  p.voice = p.given;
+  client.publish(T.assign, JSON.stringify({ map: { [id]: p.given } }));
 }
 
 function autoAssign() {

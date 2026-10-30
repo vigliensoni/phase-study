@@ -27,8 +27,8 @@ Sounds come from `../assets/`; the built-in ones are in `../assets/demo/`.
 ## Running a session
 
 1. Open `conductor.html`. It makes a room code and shows a QR code.
-2. Performers scan it, pick a voice number, and tap **Join**. The tap is required, because browsers only start audio after a gesture.
-3. On the conductor, **Number voices 1…N** assigns voices in join order (or let people choose).
+2. Performers scan it and tap **Join**. The tap is required, because browsers only start audio after a gesture.
+3. In Free mode, each phone gets the lowest free voice number as it joins (in Score mode, it is dealt into a group). **Number voices 1…N** renumbers everyone 1…N in join order, e.g. after phones have left; a performer can still nudge their own voice with − / +.
 4. **Start** lands 1.5 s after you press it. The ratio slider and **Pause phasing** take effect 0.4 s after you use them, on every phone at the same moment. **Sync voices** restarts everyone aligned.
 
 Anyone joining late, or reloading, jumps straight to where their voice should be. The conductor can reload too; it picks the piece back up from the broker.

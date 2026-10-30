@@ -22,6 +22,9 @@ const myId = (() => {
 })();
 
 let voice = Math.max(1, parseInt(params.get('voice') || store.get('c04e-voice') || '1', 10) || 1);
+// Until the conductor gives this phone a voice (Free mode numbers phones as they
+// join), its voice is only a placeholder. ?voice=N in the link fixes it instead.
+let fresh = !params.get('voice');
 let trimMs = +(store.get('c04e-trim') || 0); // manual latency trim, + = play earlier
 
 let client = null;
@@ -324,7 +327,7 @@ function checkDrift() {
 function sendPresence() {
   if (!client || !client.connected) return;
   client.publish(T.presence, JSON.stringify({
-    id: myId, voice, rtt: minRtt, jitter,
+    id: myId, voice, fresh, rtt: minRtt, jitter,
     lat: ctx ? ((ctx.outputLatency || ctx.baseLatency || 0) * 1000) : null,
     ready: state && state.mode === 'score' ? compiledFor(state).sounds.every(n => ready.has(n))
          : state ? ready.has(soundId(state.sound)) : ready.size > 0,
@@ -357,7 +360,7 @@ function connect() {
       need.forEach(n => getBuffer(n).catch(() => {}));
       return applyState();
     }
-    if (topic === T.assign && m.map && m.map[myId]) setVoice(m.map[myId]);
+    if (topic === T.assign && m.map && m.map[myId]) { fresh = false; setVoice(m.map[myId]); }
     if (topic === T.calib) onCalib(m);
   });
 }
@@ -424,7 +427,7 @@ async function join() {
   joined = true;
   keepAwake();
   document.body.classList.add('joined');
-  setVoice(+document.getElementById('voiceInput').value || voice);
+  setVoice(voice);
 
   connect();
   // Preload the Free-mode sounds so the conductor can switch without a gap
@@ -453,14 +456,13 @@ document.addEventListener('visibilitychange', () => {
 function setVoice(v) {
   voice = Math.max(1, Math.min(99, v | 0));
   store.set('c04e-voice', voice);
-  document.getElementById('voiceInput').value = voice;
   document.getElementById('voiceBig').textContent = voice;
   document.getElementById('voiceBig').style.color = voiceColor(voice);
   sendPresence();
   applyState();
 }
 
-function nudgeVoice(d) { setVoice(voice + d); }
+function nudgeVoice(d) { fresh = false; setVoice(voice + d); }
 
 // Plays a short beep right now, ignoring the conductor: checks that this
 // phone can make sound at all (volume, silent switch, audio unlocked).
@@ -640,7 +642,6 @@ function themeChanged() {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 document.getElementById('roomTxt').textContent = room || '—';
-document.getElementById('voiceInput').value = voice;
 document.getElementById('trimCtrl').value = trimMs;
 updateTrim();
 if (!room) {
