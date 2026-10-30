@@ -150,13 +150,23 @@ const SCORES = [
   },    
   {
     title: 'Multitrack test - spread 1.005',
+    credit: PTC_CREDIT,
     groups: 4,
     events: [
-      { at: '0:00', groups: 'A', play: 'demo/multitrack-test/a', ratio: 1.0},
       { at: '0:00', spread: 1.005 },
+      { at: '0:00', groups: 'A', play: 'demo/multitrack-test/a', ratio: 1.0},
       { at: '0:00', groups: 'B', play: 'demo/multitrack-test/b', ratio: 1.0},
       { at: '0:00', groups: 'C', play: 'demo/multitrack-test/c', ratio: 1.0},
       { at: '0:00', groups: 'D', play: 'demo/multitrack-test/d', ratio: 1.0},
+      { at: '1:00', groups: 'A', play: 'PTC/Airsolo_ImpTenuP1_03.mp3', ratio: 1.0, loop: false},
+      { at: '1:04', groups: 'B', play: 'PTC/AirSolo_MouvP2_06.mp3', ratio: 1.0, loop: false},
+      { at: '1:10', groups: 'C', play: 'PTC/AirSolo_MouvP2_07.mp3', ratio: 1.0, loop: false},     
+      { at: '1:00', groups: 'D', play: 'PTC/AirSolo_MouvP2_14.mp3', ratio: 1.0, loop: false}, 
+      { at: '1:40', groups: 'A', play: 'PTC/Airsolo_ImpTenuP1_03.mp3', ratio: 1.0, loop: false},
+      { at: '1:44', groups: 'B', play: 'PTC/AirSolo_MouvP2_06.mp3', ratio: 1.0, loop: false},
+      { at: '1:50', groups: 'C', play: 'PTC/AirSolo_MouvP2_07.mp3', ratio: 1.0, loop: false},     
+      { at: '1:40', groups: 'D', play: 'PTC/AirSolo_MouvP2_14.mp3', ratio: 1.0, loop: false},      
+      { at: '5:55', groups: 'all', stop: 'all', fade: 5 }
     ],
   },  
   {
