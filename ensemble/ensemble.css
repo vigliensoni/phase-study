@@ -117,6 +117,9 @@ body.standby.pinged .standby-screen { background: var(--accent); transition: non
 #timeline { display: block; width: 100%; height: 240px; cursor: crosshair;
   border: 1px solid var(--dim); background: var(--well); }
 .score-err { font-size: 0.7rem; color: var(--c2); margin-top: 0.4rem; min-height: 1em; }
+.score-credit { font-size: 0.7rem; font-style: italic; color: var(--mid); margin-top: 0.4rem; }
+#creditTxt { text-align: center; max-width: 22rem; margin: 0 auto; }
+#creditTxt:empty, #scoreCredit:empty { display: none; }
 
 .score-sel, .from-ctrl {
   font: inherit; font-size: 0.85rem; background: var(--well); color: var(--fg);

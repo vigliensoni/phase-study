@@ -318,6 +318,7 @@ function refreshUI() {
     b.classList.toggle('active', b.dataset.sound === soundId(S.sound)));
 
   document.getElementById('scoreSel').value = S.scoreIdx;
+  document.getElementById('scoreCredit').textContent = (S.score && S.score.credit) || '';
   document.getElementById('scoreErr').textContent = [...comp.errors,
     ...comp.sounds.filter(n => missing.has(n)).map(n => `sound "${n}" not found (${soundURL(n)})`)].join(' · ');
   document.getElementById('assignBtn').innerHTML = score ? '⇢ &nbsp;Re-deal groups' : '⇢ &nbsp;Number voices 1…N';

@@ -534,6 +534,9 @@ function renderStatus() {
   if (client && client.connected) statusOverride = null;
   el.textContent = txt;
 
+  const credit = document.getElementById('creditTxt');
+  if (credit) credit.textContent = state && state.mode === 'score' && state.score && state.score.credit || '';
+
   const stats = document.getElementById('statsTxt');
   if (stats) stats.textContent = synced
     ? `sync ±${jitter.toFixed(1)} ms · rtt ${Math.round(minRtt)} ms · drift ${driftMs.toFixed(1)} ms`
