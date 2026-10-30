@@ -190,7 +190,14 @@ const SCORES = [
       { at: '0:00', groups: 'C', play: 'demo/multitrack-test/c', ratio: 1.0},
       { at: '0:00', groups: 'D', play: 'demo/multitrack-test/d', ratio: 1.0},
     ],
-  },   
+  },
+    {
+    title: 'Testing ratio 1.001',
+    groups: 1,
+    events: [
+      { at: '0:00', groups: 'A', play: 'demo/multitrack-test/a', ratio: 1.001},
+    ],
+  },  
     {
     title: 'PTC 01',
     credit: PTC_CREDIT,
