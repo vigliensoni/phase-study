@@ -74,6 +74,7 @@ Switch the conductor to **Score** to play a timed piece from `scores.js`.
 - **Two kinds of drift.** `ratio` works *inside* a group: phone *k* drifts from the group’s first phone. `spread` works *across* groups: B drifts from A, C twice as far, and so on. They add up: phone *k* of group *j* plays at `1 + (k − 1)·(ratio − 1) + (j − 1)·(spread − 1)`.
 - **One message.** The whole score and a start time go to every phone once. Each phone computes its own part and schedules every fade and drift change ahead, so a network hiccup mid-piece doesn’t matter, and a phone that joins late starts exactly where its group is.
 - **Start from.** Type a time or click the timeline, then **Start score**. Handy for rehearsing a section.
+- **Mute a group.** Click a group's letter on the timeline to silence its phones; the letter and its lane turn grey. Click again to bring it back. Works while playing; mutes reset when you pick another score.
 - **Live drift override.** The slider still works: moving it overrides every group’s scored drift from that moment. **Follow score** hands control back.
 
 ### Writing a score

@@ -26,6 +26,7 @@ let trimMs = +(store.get('c04e-trim') || 0); // manual latency trim, + = play ea
 
 let client = null;
 let ctx = null, master = null;
+let scoreBus = null; // score-mode sounds go through here, so the conductor can mute a group
 let state = null;   // latest state message from the conductor
 let cur = null;     // what is currently sounding: { src, gain, epoch, voice, sound, tA, seatK, S }
 let joined = false;
@@ -179,6 +180,7 @@ function compiledFor(S) {
 }
 
 function myAssign(S) { return (S.assign && S.assign[myId]) || null; }
+function isMuted(S) { const a = myAssign(S); return !!(a && S.muted && S.muted.includes(a[0])); }
 
 async function applyScore(S) {
   const comp = compiledFor(S);
@@ -186,6 +188,7 @@ async function applyScore(S) {
   if (!a) { stopScore(0); return; }
   const [group, rank] = a;
   const mine = comp.layers.filter(L => L.group === group);
+  scoreBus.gain.setTargetAtTime(isMuted(S) ? 0 : 1, ctx.currentTime, 0.05);
 
   try { await Promise.all([...new Set(mine.map(L => L.sound))].map(getBuffer)); }
   catch (e) { setStatus('COULD NOT LOAD SOUNDS'); return; }
@@ -221,7 +224,7 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     const src = ctx.createBufferSource(), gain = ctx.createGain();
     src.buffer = buffer;
     src.loop = L.loop !== false;
-    src.connect(gain).connect(master);
+    src.connect(gain).connect(scoreBus);
 
     // Drift (inside the group) + spread (across groups) → playback rate,
     // following the curves exactly (steps and ramps)
@@ -402,6 +405,8 @@ async function join() {
   master = ctx.createGain();
   master.gain.value = +document.getElementById('volCtrl').value;
   master.connect(ctx.destination);
+  scoreBus = ctx.createGain();
+  scoreBus.connect(master);
   await ctx.resume();
   const unlock = ctx.createBufferSource();          // prime the output on iOS
   unlock.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
@@ -525,7 +530,7 @@ function renderStatus() {
   else if (state.mode === 'score') {
     const st = (sharedNow() - state.T0) / 1000, comp = compiledFor(state);
     txt = ctx.state !== 'running' ? 'AUDIO BLOCKED — TAP “TEST SOUND”'
-        : st < 0 ? 'COUNT-IN…' : st > comp.end ? 'END' : 'PLAYING';
+        : st < 0 ? 'COUNT-IN…' : st > comp.end ? 'END' : isMuted(state) ? 'MUTED' : 'PLAYING';
   }
   else if (!cur) txt = 'LOADING SOUND…';
   else if (ctx.state !== 'running') txt = 'AUDIO BLOCKED — TAP “TEST SOUND”';

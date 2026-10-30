@@ -30,6 +30,7 @@ let S = {
   sound: LOOP_SOUNDS[0], T0: 0, tA: 0, phiA: 0, ratio: 1.002, paused: false,
   // score mode
   scoreIdx: 0, score: SCORES[0], overrides: [], assign: {}, nextSlot: 0,
+  muted: [], // groups silenced from the timeline (click a group's letter)
 };
 let adoptedRetained = false; // after a reload, pick up where the room was
 let durations = {};          // sound id → seconds (for the ring display)
@@ -217,6 +218,7 @@ function selectScore(i) {
   i = +i;
   S.scoreIdx = i;
   S.score = SCORES[i];
+  S.muted = [];
   comp = compileScore(S.score);
   loadDurations(comp.sounds);
   if (S.playing) { S.playing = false; S.stopAt = localNow() + LEAD_CHANGE; }
@@ -419,7 +421,8 @@ function drawTimeline() {
 
   comp.groups.forEach((g, gi) => {
     const y0 = top + gi * laneH, y1 = y0 + laneH;
-    c.fillStyle = groupColor(g, comp.groups);
+    const muted = (S.muted || []).includes(g);
+    c.fillStyle = muted ? themeColor('--dim') : groupColor(g, comp.groups);
     c.fillText(g, 8 * dpr, (y0 + y1) / 2);
     c.strokeStyle = themeColor('--dim');
     c.beginPath(); c.moveTo(left, y1); c.lineTo(W, y1); c.stroke();
@@ -429,9 +432,9 @@ function drawTimeline() {
       const fileEnd = L.loop === false && durations[L.sound] ? L.start + durations[L.sound] : Infinity;
       const tEnd = Math.min(isFinite(L.stop) ? L.stop : end, fileEnd);
       const hue = soundHue(L.sound);
-      // Gain envelope as a filled shape
-      c.fillStyle = `hsl(${hue} 65% 50% / 0.35)`;
-      c.strokeStyle = `hsl(${hue} 65% 45%)`;
+      // Gain envelope as a filled shape (grey when the group is muted)
+      c.fillStyle = muted ? 'hsl(0 0% 50% / 0.15)' : `hsl(${hue} 65% 50% / 0.35)`;
+      c.strokeStyle = muted ? 'hsl(0 0% 50% / 0.5)' : `hsl(${hue} 65% 45%)`;
       c.beginPath();
       c.moveTo(x(L.start), y1 - 2 * dpr);
       const N = 120;
@@ -445,7 +448,7 @@ function drawTimeline() {
       const maxD = Math.max(1e-6, ...comp.layers.flatMap(l => effectiveDrift(l, S.overrides).map(p => p.v)));
       const drift = effectiveDrift(L, S.overrides);
       c.setLineDash([3 * dpr, 3 * dpr]);
-      c.strokeStyle = themeColor('--fg'); c.lineWidth = 1 * dpr;
+      c.strokeStyle = themeColor(muted ? '--dim' : '--fg'); c.lineWidth = 1 * dpr;
       c.beginPath();
       for (let i = 0; i <= N; i++) {
         const t = L.start + (tEnd - L.start) * i / N;
@@ -454,7 +457,7 @@ function drawTimeline() {
       }
       c.stroke(); c.setLineDash([]); c.lineWidth = 1;
       // Label: sound and starting ratio
-      c.fillStyle = themeColor('--fg');
+      c.fillStyle = themeColor(muted ? '--mid' : '--fg');
       c.fillText(`${L.sound} · ${(1 + L.drift[0].v).toFixed(3)}`, x(L.start) + 4 * dpr, y0 + 10 * dpr);
     }
   });
@@ -496,7 +499,25 @@ function drawTimeline() {
   canvas._x2t = px => (px * dpr - left) / (W - left - 6 * dpr) * end;
 }
 
+// The column of group letters (CSS px), same layout as drawTimeline()
+function groupAtLetter(ev) {
+  const r = document.getElementById('timeline').getBoundingClientRect();
+  const x = ev.clientX - r.left, y = ev.clientY - r.top - 16;
+  if (x > 28 || y < 0) return null;
+  return comp.groups[Math.floor(y / ((r.height - 16) / comp.groups.length))] || null;
+}
+
+// Click a group's letter to mute / unmute it (works while playing, too)
+function toggleMute(g) {
+  const m = new Set(S.muted || []);
+  m.has(g) ? m.delete(g) : m.add(g);
+  S.muted = [...m];
+  publishState();
+}
+
 function timelineClick(ev) {
+  const g = groupAtLetter(ev);
+  if (g) return toggleMute(g);
   if (S.playing) return;
   const canvas = document.getElementById('timeline');
   const r = canvas.getBoundingClientRect();
@@ -548,6 +569,9 @@ try {
 document.getElementById('scoreSel').innerHTML =
   SCORES.map((s, i) => `<option value="${i}">${s.title || 'Score ' + (i + 1)}</option>`).join('');
 document.getElementById('timeline').addEventListener('click', timelineClick);
+document.getElementById('timeline').addEventListener('mousemove', ev => {
+  ev.currentTarget.style.cursor = groupAtLetter(ev) ? 'pointer' : '';
+});
 
 // Free-mode sound buttons, from LOOP_SOUNDS (scores.js)
 const soundBtns = document.getElementById('soundBtns');
