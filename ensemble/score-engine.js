@@ -154,7 +154,15 @@ function compileScore(score) {
       if (!n) { errors.push(`event ${e.i + 1}: no sound named`); continue; }
       for (const g of gs) {
         if (e.ratio !== undefined) groupRatio[g] = +e.ratio;
-        if (active[g].has(n)) { errors.push(`event ${e.i + 1}: sound ${n} already playing in ${g}`); continue; }
+        const prev = active[g].get(n);
+        if (prev && prev.loop === false) {
+          // Playing a one-shot again restarts it: the earlier one (if it is
+          // still sounding — the file may well have ended) fades out quickly
+          const f = 0.05;
+          prev.gain = rampTo(prev.gain, e.t, 0, f);
+          prev.stop = e.t + f;
+          active[g].delete(n);
+        } else if (prev) { errors.push(`event ${e.i + 1}: sound ${n} already playing in ${g}`); continue; }
         const level = e.level ?? 1;
         const L = {
           id: `${g}${n}@${e.t}`, group: g, gi: groups.indexOf(g), sound: n, start: e.t, stop: Infinity,
