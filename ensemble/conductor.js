@@ -27,13 +27,14 @@ let S = {
   v: 1, mode: 'free', epoch: null, playing: false, stopAt: 0,
   standby: false, // every phone shows a black screen (stays awake and connected)
   // free mode
-  sound: 1, T0: 0, tA: 0, phiA: 0, ratio: 1.002, paused: false,
+  sound: LOOP_SOUNDS[0], T0: 0, tA: 0, phiA: 0, ratio: 1.002, paused: false,
   // score mode
   scoreIdx: 0, score: SCORES[0], overrides: [], assign: {}, nextSlot: 0,
 };
 let adoptedRetained = false; // after a reload, pick up where the room was
-let durations = {};          // sound n → seconds (for the ring display)
-let comp = compileScore(S.score, SOUNDS.length);
+let durations = {};          // sound id → seconds (for the ring display)
+const missing = new Set();   // sound ids whose file couldn't be loaded
+let comp = compileScore(S.score);
 
 const roster = new Map();    // id → { voice, assign, rtt, jitter, lat, ready, first, last, gone }
 
@@ -77,7 +78,8 @@ client.on('message', (topic, buf) => {
     adoptedRetained = true;
     if (m.v === 1 && m.epoch) {
       S = { ...S, ...m, mode: m.mode || 'free' };
-      comp = compileScore(S.score, SOUNDS.length);
+      comp = compileScore(S.score);
+      loadDurations(comp.sounds);
       refreshUI();
     }
   }
@@ -158,7 +160,7 @@ function updateRatio() {
 }
 
 function selectSound(n) {
-  S.sound = n;
+  S.sound = soundId(n);
   if (S.playing) launch(); else publishState();
 }
 
@@ -215,7 +217,8 @@ function selectScore(i) {
   i = +i;
   S.scoreIdx = i;
   S.score = SCORES[i];
-  comp = compileScore(S.score, SOUNDS.length);
+  comp = compileScore(S.score);
+  loadDurations(comp.sounds);
   if (S.playing) { S.playing = false; S.stopAt = localNow() + LEAD_CHANGE; }
   rebalance(false); // re-deal every phone into this score's groups
   publishState();
@@ -271,15 +274,19 @@ function ensureAssigned() {
   if (changed && !assignTimer) assignTimer = setTimeout(() => { assignTimer = null; publishState(); }, 300);
 }
 
-// ── Durations (for drawing the ring) ──────────────────────────────────────────
-async function loadDurations() {
-  const ctx = new OfflineAudioContext(1, 1, 44100);
-  await Promise.all(SOUNDS.map(async (url, i) => {
+// ── Durations (for drawing the ring; also finds sounds whose file is missing) ─
+const durCtx = new OfflineAudioContext(1, 1, 44100);
+async function loadDurations(ids) {
+  ids = ids.map(soundId).filter(n => !(n in durations) && !missing.has(n));
+  await Promise.all(ids.map(async n => {
+    durations[n] = null; // loading
     try {
-      const buf = await (await fetch(url)).arrayBuffer();
-      durations[i + 1] = (await ctx.decodeAudioData(buf)).duration;
-    } catch (e) { /* ring just won't show for that sound */ }
+      const r = await fetch(soundURL(n));
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      durations[n] = (await durCtx.decodeAudioData(await r.arrayBuffer())).duration;
+    } catch (e) { delete durations[n]; missing.add(n); }
   }));
+  if (ids.length) refreshUI();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -308,10 +315,11 @@ function refreshUI() {
   sb.textContent = S.standby ? '◼   Standby: on' : '◻   Standby: off';
   sb.classList.toggle('on', !!S.standby);
   document.querySelectorAll('.sound-btn').forEach(b =>
-    b.classList.toggle('active', +b.dataset.sound === S.sound));
+    b.classList.toggle('active', b.dataset.sound === soundId(S.sound)));
 
   document.getElementById('scoreSel').value = S.scoreIdx;
-  document.getElementById('scoreErr').textContent = comp.errors.join(' · ');
+  document.getElementById('scoreErr').textContent = [...comp.errors,
+    ...comp.sounds.filter(n => missing.has(n)).map(n => `sound "${n}" not found (${soundURL(n)})`)].join(' · ');
   document.getElementById('assignBtn').innerHTML = score ? '⇢ &nbsp;Re-deal groups' : '⇢ &nbsp;Number voices 1…N';
   document.getElementById('driftTitle').textContent = score ? 'Live drift override' : 'Drift — Voice 2 speed';
   document.getElementById('driftHint').innerHTML = score
@@ -380,7 +388,8 @@ function renderRoster() {
 const fmtAgo = ms => ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.floor(ms / 60000)} min`;
 
 // ── Timeline (score mode) ─────────────────────────────────────────────────────
-const soundHue = n => [0, 95, 20, 200, 285, 335][n] ?? 45;
+// Colour by the sound's place in the score (first sound, second sound, …)
+const soundHue = n => [95, 20, 200, 285, 335, 0, 45, 170, 245][Math.max(0, comp.sounds.indexOf(n)) % 9];
 
 function drawTimeline() {
   const canvas = document.getElementById('timeline');
@@ -499,7 +508,7 @@ function renderLoop() {
     renderStatus();
   } else {
     const canvas = document.getElementById('ring');
-    const now = localNow(), dur = durations[S.sound];
+    const now = localNow(), dur = durations[soundId(S.sound)];
     let hands = [];
     if (S.playing && dur && now >= S.T0) {
       const vs = [...new Set([1, ...[...roster.values()].filter(awake).map(p => p.voice)])].sort((a, b) => a - b);
@@ -537,10 +546,20 @@ document.getElementById('scoreSel').innerHTML =
   SCORES.map((s, i) => `<option value="${i}">${s.title || 'Score ' + (i + 1)}</option>`).join('');
 document.getElementById('timeline').addEventListener('click', timelineClick);
 
+// Free-mode sound buttons, from LOOP_SOUNDS (scores.js)
+const soundBtns = document.getElementById('soundBtns');
+for (const n of LOOP_SOUNDS.map(soundId)) {
+  const b = document.createElement('button');
+  b.className = 'sound-btn';
+  b.dataset.sound = b.textContent = n;
+  b.onclick = () => selectSound(n);
+  soundBtns.appendChild(b);
+}
+
 document.getElementById('themeBtn').textContent =
   document.documentElement.dataset.theme === 'dark' ? '◐   Light' : '◐   Dark';
 refreshUI();
 renderRoster();
 setInterval(renderRoster, 1000);
-loadDurations();
+loadDurations([...LOOP_SOUNDS, ...comp.sounds]);
 requestAnimationFrame(renderLoop);

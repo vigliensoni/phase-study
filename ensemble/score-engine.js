@@ -93,8 +93,18 @@ function rampTo(pts, t, v, dur) {
   return kept;
 }
 
+// ── Sounds ────────────────────────────────────────────────────────────────────
+// A sound's id is its file path under SOUND_DIR (scores.js), ".wav" implied:
+// 'demo/door' → ../assets/demo/door.wav, 'P01/03' → ../assets/P01/03.wav
+const soundId = x => (x === undefined || x === null) ? '' : String(x).trim();
+
+function soundURL(id) {
+  id = soundId(id);
+  return SOUND_DIR + (/\.[a-z0-9]+$/i.test(id) ? id : id + '.wav');
+}
+
 // ── Compile ───────────────────────────────────────────────────────────────────
-function compileScore(score, nSounds = 5) {
+function compileScore(score) {
   const errors = [];
   // groups: a number (3 → A, B, C) or a list of names; default 4
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -140,8 +150,8 @@ function compileScore(score, nSounds = 5) {
     }
 
     if (e.play !== undefined) {
-      const n = +e.play;
-      if (!(n >= 1 && n <= nSounds)) { errors.push(`event ${e.i + 1}: no sound ${e.play}`); continue; }
+      const n = soundId(e.play);
+      if (!n) { errors.push(`event ${e.i + 1}: no sound named`); continue; }
       for (const g of gs) {
         if (e.ratio !== undefined) groupRatio[g] = +e.ratio;
         if (active[g].has(n)) { errors.push(`event ${e.i + 1}: sound ${n} already playing in ${g}`); continue; }
@@ -160,13 +170,13 @@ function compileScore(score, nSounds = 5) {
     const targets = g => {
       const m = active[g];
       if (e.sound === undefined || e.sound === 'all') return [...m.values()];
-      return m.has(+e.sound) ? [m.get(+e.sound)] : [];
+      return m.has(soundId(e.sound)) ? [m.get(soundId(e.sound))] : [];
     };
 
     if (e.stop !== undefined) {
       for (const g of gs) {
         const ls = e.stop === 'all' ? [...active[g].values()]
-                 : active[g].has(+e.stop) ? [active[g].get(+e.stop)] : [];
+                 : active[g].has(soundId(e.stop)) ? [active[g].get(soundId(e.stop))] : [];
         for (const L of ls) {
           const f = Math.max(fade, 0.05);
           L.gain = rampTo(L.gain, e.t, 0, f);
@@ -193,7 +203,8 @@ function compileScore(score, nSounds = 5) {
                             ...events.map(e => e.t + (+e.fade || 0) + (+e.glide || 0)));
   const end = isFinite(parseTime(score && score.end)) ? parseTime(score.end) : lastT;
 
-  return { title: (score && score.title) || 'Untitled', groups, layers, spread, end, errors };
+  const sounds = [...new Set(layers.map(L => L.sound))]; // what phones need to download
+  return { title: (score && score.title) || 'Untitled', groups, layers, sounds, spread, end, errors };
 }
 
 // ── Live override (the conductor's slider) ────────────────────────────────────

@@ -16,11 +16,11 @@
 // Event fields
 //   at      when: "m:ss" or seconds from the start
 //   groups  which groups: "ABC", ["A","D"], or "all" (default: all)
-//   play    start sound n (from SOUNDS below) in those groups
+//   play    start a sound in those groups ('demo/door', 'P01/03'; see SOUNDS below)
 //     ratio   drift inside the group (default: the group's last ratio, or 1)
 //     fade    fade-in, seconds
 //     level   0–1 (default 1)
-//   stop    fade out sound n, or "all"
+//   stop    fade out a sound, or "all"
 //     fade    fade-out, seconds
 //   ratio   change drift inside the groups
 //     glide   seconds to move to the new value (default: instant)
@@ -32,24 +32,17 @@
 // `end` (optional) is when the conductor shows the piece as finished.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// SOUNDS — the files a score can play; `play: n` is SOUNDS[n − 1].
-// (Paths are relative to this folder.)
-const SOUNDS = [
-  '../assets/1.wav',
-  '../assets/2.wav',
-  '../assets/3.wav',
-  '../assets/4.wav',
-  '../assets/5.wav',
-  '../assets/karateka.wav',
-  '../assets/door.wav',
-  '../assets/wall-thump.wav',
-  '../assets/cowbell-minipops.wav',
-  '../assets/C03-S01-repeater_FAV.wav',
-  '../assets/sine-110.wav',
-  '../assets/multitrack-test/a.wav',
-  '../assets/multitrack-test/b.wav',
-  '../assets/multitrack-test/c.wav',
-  '../assets/multitrack-test/d.wav'
+// SOUNDS — a sound is named by its file, relative to SOUND_DIR, without the
+// ".wav": `play: 'demo/door'` plays ../assets/demo/door.wav, `play: 'P01/03'` plays
+// ../assets/P01/03.wav. Any other extension is written out ('rain.mp3').
+// To add a sound, drop the file into the folder; there is no list to keep.
+// Phones download only the sounds of the score being played.
+const SOUND_DIR = '../assets/';
+
+// The sound buttons of Free mode, in button order
+const LOOP_SOUNDS = [
+  'demo/1', 'demo/2', 'demo/3', 'demo/4', 'demo/5',
+  'demo/karateka', 'demo/door', 'demo/wall-thump', 'demo/cowbell-minipops',
 ];
 
 const SCORES = [
@@ -58,21 +51,21 @@ const SCORES = [
     groups: 4,
     events: [
       // Sound 1 in A, B and C: each group spreads slowly, groups stay together
-      { at: '0:00', groups: 'AB',  play: 1, ratio: 1.01, fade: 5 },
+      { at: '0:00', groups: 'AB',  play: 'demo/1', ratio: 1.01, fade: 5 },
       // The groups start drifting against each other too
       { at: '0:30', spread: 1.04, glide: 30 },
       // At 2:00 sound 2 fades in on D over a minute…
-      { at: '1:00', groups: 'C',    play: 3, ratio: 1.010, fade: 60 },
-      { at: '1:00', groups: 'D',    play: 5, ratio: 1.020, fade: 60 },
+      { at: '1:00', groups: 'C',    play: 'demo/3', ratio: 1.010, fade: 60 },
+      { at: '1:00', groups: 'D',    play: 'demo/5', ratio: 1.020, fade: 60 },
       // …while A, B, C crossfade from sound 1 to sound 2 over the same minute
-      { at: '1:15', groups: 'AB',  stop: 1, fade: 60 },
-      { at: '2:15', groups: 'A',  play: 5, ratio: 1.004, fade: 60 },
+      { at: '1:15', groups: 'AB',  stop: 'demo/1', fade: 60 },
+      { at: '2:15', groups: 'A',  play: 'demo/5', ratio: 1.004, fade: 60 },
       // Everyone accelerates inside their group, then everything freezes
       { at: '3:00', groups: 'all',  ratio: 1.03, glide: 20 },
       { at: '4:00', groups: 'all',  ratio: 1.000, glide: 30 },
       { at: '5:00', spread: 1.000, glide: 30 },
       // Sound 3 enters on A and C only, frozen
-      { at: '5:30', groups: 'AC',   play: 3, fade: 10, level: 0.8 },
+      { at: '5:30', groups: 'AC',   play: 'demo/3', fade: 10, level: 0.8 },
       { at: '6:00', groups: 'all',  stop: 'all', fade: 20 },
     ],
     end: '6:20',
@@ -83,9 +76,9 @@ const SCORES = [
     groups: 3,
     events: [
       // Both groups in unison, then only the groups drift apart…
-      { at: '0:00', groups: 'AB', play: 4, ratio: 1.00, fade: 10 },
+      { at: '0:00', groups: 'AB', play: 'demo/4', ratio: 1.00, fade: 10 },
       { at: '0:15', ratio: 1.05, glide: 20 },
-      { at: '0:15', groups: 'C', play: 7, ratio: 1.05, level: 0.125, fade: 30 },
+      { at: '0:15', groups: 'C', play: 'demo/door', ratio: 1.05, level: 0.125, fade: 30 },
       // …then each group also blurs inside
       { at: '0:50', ratio: 1.05, glide: 20 },
       { at: '1:30', spread: 1.05, glide: 10 },
@@ -98,8 +91,8 @@ const SCORES = [
     groups: 2,
     events: [
       // Both groups in unison, then only the groups drift apart…
-      { at: '0:00', groups: 'A', play: 16, ratio: 1.1, fade: 10 },
-      { at: '0:10', groups: 'B', play: 16, ratio: 1.1, fade: 20 },
+      { at: '0:00', groups: 'A', play: 'demo/16', ratio: 1.1, fade: 10 },
+      { at: '0:10', groups: 'B', play: 'demo/16', ratio: 1.1, fade: 20 },
       { at: '1:50', stop: 'all', fade: 10 },
     ],
   },
@@ -108,11 +101,11 @@ const SCORES = [
     title: 'Quick test (1 min)',
     groups: 3,
     events: [
-      { at: '0:00', groups: 'AB', play: 1, ratio: 1.01, fade: 2 },
+      { at: '0:00', groups: 'AB', play: 'demo/1', ratio: 1.01, fade: 2 },
       { at: '0:10', spread: 1.005 },
-      { at: '0:15', groups: 'C',  play: 2, ratio: 1.02, fade: 10 },
-      { at: '0:30', groups: 'AB', stop: 1, fade: 10 },
-      { at: '0:30', groups: 'AB', play: 4, ratio: 1.005, fade: 10 },
+      { at: '0:15', groups: 'C',  play: 'demo/2', ratio: 1.02, fade: 10 },
+      { at: '0:30', groups: 'AB', stop: 'demo/1', fade: 10 },
+      { at: '0:30', groups: 'AB', play: 'demo/4', ratio: 1.005, fade: 10 },
       { at: '0:45', groups: 'all', ratio: 1.0, glide: 5 },
       { at: '0:45', spread: 1.0, glide: 5 },
       { at: '0:55', groups: 'all', stop: 'all', fade: 5 },
@@ -122,73 +115,84 @@ const SCORES = [
     title: 'Mini composition',
     groups: 2,
     events: [
-      { at: '0:00', groups: 'A', play: 10, ratio: 1.0},
+      { at: '0:00', groups: 'A', play: 'demo/C03-S01-repeater_FAV', ratio: 1.0},
       { at: '0:05', ratio: 1.01, glide: 30 },
-      { at: '0:05', groups: 'B', play: 10, ratio: 1.02, fade: 10 },
+      { at: '0:05', groups: 'B', play: 'demo/C03-S01-repeater_FAV', ratio: 1.02, fade: 10 },
       { at: '0:25', ratio: 1.05, glide: 30},
       { at: '0:55', groups: 'all', stop: 'all', fade: 5 },
     ],
   },  
-    {
+  {
     title: 'Sinewave',
     groups: 2,
     events: [
-      { at: '0:00', groups: 'A', play: 11, ratio: 1.0},
+      { at: '0:00', groups: 'A', play: 'demo/sine-110', ratio: 1.0},
       { at: '0:00', ratio: 1.1, glide: 10 },
     ],
   },
-        {
+  {
     title: 'Multitrack test',
     groups: 4,
     events: [
-      { at: '0:00', groups: 'A', play: 12, ratio: 1.0},
+      { at: '0:00', groups: 'A', play: 'demo/multitrack-test/a', ratio: 1.0},
       { at: '0:00', spread: 1.0 },
-      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
-      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
-      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+      { at: '0:00', groups: 'B', play: 'demo/multitrack-test/b', ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 'demo/multitrack-test/c', ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 'demo/multitrack-test/d', ratio: 1.0},
     ],
   },    
-      {
+  {
     title: 'Multitrack test - spread 1.005',
     groups: 4,
     events: [
-      { at: '0:00', groups: 'A', play: 12, ratio: 1.0},
+      { at: '0:00', groups: 'A', play: 'demo/multitrack-test/a', ratio: 1.0},
       { at: '0:00', spread: 1.005 },
-      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
-      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
-      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+      { at: '0:00', groups: 'B', play: 'demo/multitrack-test/b', ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 'demo/multitrack-test/c', ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 'demo/multitrack-test/d', ratio: 1.0},
     ],
   },  
-      {
+  {
     title: 'Multitrack test - spread 1.05',
     groups: 4,
     events: [
-      { at: '0:00', groups: 'A', play: 12, ratio: 1.0},
+      { at: '0:00', groups: 'A', play: 'demo/multitrack-test/a', ratio: 1.0},
       { at: '0:00', spread: 1.05 },
-      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
-      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
-      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+      { at: '0:00', groups: 'B', play: 'demo/multitrack-test/b', ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 'demo/multitrack-test/c', ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 'demo/multitrack-test/d', ratio: 1.0},
     ],
   },  
-          {
+  {
     title: 'Multitrack test ratio 1.01',
     groups: 4,
     events: [
-      { at: '0:00', groups: 'A', play: 12, ratio: 1.01},
-      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
-      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
-      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+      { at: '0:00', groups: 'A', play: 'demo/multitrack-test/a', ratio: 1.01},
+      { at: '0:00', groups: 'B', play: 'demo/multitrack-test/b', ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 'demo/multitrack-test/c', ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 'demo/multitrack-test/d', ratio: 1.0},
     ],
   },   
-            {
+  {
     title: 'Multitrack test spread 1.005 ratio 1.01',
     groups: 4,
     events: [
-      { at: '0:00', groups: 'A', play: 12, ratio: 1.01},
+      { at: '0:00', groups: 'A', play: 'demo/multitrack-test/a', ratio: 1.01},
       { at: '0:00', spread: 1.005 },
-      { at: '0:00', groups: 'B', play: 13, ratio: 1.0},
-      { at: '0:00', groups: 'C', play: 14, ratio: 1.0},
-      { at: '0:00', groups: 'D', play: 15, ratio: 1.0},
+      { at: '0:00', groups: 'B', play: 'demo/multitrack-test/b', ratio: 1.0},
+      { at: '0:00', groups: 'C', play: 'demo/multitrack-test/c', ratio: 1.0},
+      { at: '0:00', groups: 'D', play: 'demo/multitrack-test/d', ratio: 1.0},
+    ],
+  },   
+    {
+    title: 'PTC 01',
+    groups: 4,
+    events: [
+      { at: '0:00', groups: 'A', play: 'PTC/Insectes_Soli_SeqJ_03.mp3', ratio: 1.01, level: 0.6},
+      { at: '0:20', groups: 'B', play: 'PTC/Mb_Ite_SeqJ_01.mp3', ratio: 1.01},
+      { at: '0:40', groups: 'C', play: 'PTC/Mv_Diva_Emb_ValveE_SeqJ_01.mp3', ratio: 1.01},
+      { at: '0:40', groups: 'D', play: 'PTC/Mv_n2_BagtStyro_Ite_03.mp3', ratio: 1.01, level: 0.3},
+      { at: '5:55', groups: 'all', stop: 'all', fade: 5 }
     ],
   },   
 ];

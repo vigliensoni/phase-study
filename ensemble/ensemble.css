@@ -128,3 +128,7 @@ body.standby.pinged .standby-screen { background: var(--accent); transition: non
 #btnFollow:disabled { opacity: 0.4; cursor: default; }
 body.score-mode .cond-grid { grid-template-columns: minmax(0, 1fr) 300px; }
 @media (max-width: 900px) { body.score-mode .cond-grid { grid-template-columns: 1fr; } }
+
+/* Free-mode sound buttons hold names ('door', 'P01/03'), not just 1–5 */
+.sound-btns { grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); }
+.sound-btn { font-size: 0.75rem; padding: 0.55rem 0.3rem; overflow-wrap: anywhere; }

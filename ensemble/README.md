@@ -15,14 +15,14 @@ index.html       Performer page (open on each phone)
 conductor.html   Conductor page (open on the laptop / projector)
 net.js           Shared: broker connection, topics, the phase math, ring drawing
 score-engine.js  Shared: compiles a score into per-group layers; drift maths
-scores.js        The sound files and the scores (edit this to write your own)
+scores.js        Sound folder, Free-mode sound buttons, and the scores (edit this to write your own)
 performer.js     Clock sync, scheduling, drift correction, audio
 conductor.js     Shared clock, state of the piece, roster, controls
 ensemble.css     Layout (on top of ../style.css)
 keepawake.mp4    3 KB silent video: keeps screens on where Wake Lock isn't available
 ```
 
-Sounds come from `../assets/` (the same list as the single-browser study).
+Sounds come from `../assets/`; the built-in ones are in `../assets/demo/`.
 
 ## Running a session
 
@@ -85,11 +85,11 @@ Add an entry to the `SCORES` list in `scores.js`:
   title: 'Rain Study I',
   groups: 4,
   events: [
-    { at: '0:00', groups: 'ABC', play: 1, ratio: 1.002, fade: 5 },
+    { at: '0:00', groups: 'ABC', play: 'demo/1', ratio: 1.002, fade: 5 },
     { at: '1:00', spread: 1.001, glide: 30 },                         // groups drift apart
-    { at: '2:00', groups: 'D',   play: 2, ratio: 1.010, fade: 60 },   // 1-min fade-in
-    { at: '2:00', groups: 'ABC', stop: 1, fade: 60 },                 // crossfade…
-    { at: '2:00', groups: 'ABC', play: 2, ratio: 1.004, fade: 60 },   // …into sound 2
+    { at: '2:00', groups: 'D',   play: 'demo/door', ratio: 1.010, fade: 60 },   // 1-min fade-in
+    { at: '2:00', groups: 'ABC', stop: 'demo/1', fade: 60 },                 // crossfade…
+    { at: '2:00', groups: 'ABC', play: 'demo/door', ratio: 1.004, fade: 60 },   // …into demo/door
     { at: '4:00', groups: 'all', ratio: 1.015, glide: 20 },           // accelerate
     { at: '5:00', groups: 'all', ratio: 1.000, glide: 30 },           // freeze the phases
     { at: '6:00', groups: 'all', stop: 'all', fade: 20 },
@@ -102,13 +102,19 @@ Add an entry to the `SCORES` list in `scores.js`:
 |---|---|
 | `at` | When: `"m:ss"` or seconds |
 | `groups` | On an event: `"ABC"`, `["A","D"]`, or `"all"` (default). On the score: how many groups |
-| `play: n` | Start sound *n* in those groups. Options: `ratio`, `fade` (s), `level` (0–1) |
-| `stop: n` / `stop: "all"` | Fade out. Option: `fade` (s) |
+| `play: 'name'` | Start a sound in those groups (see *Sounds* below). Options: `ratio`, `fade` (s), `level` (0–1) |
+| `stop: 'name'` / `stop: "all"` | Fade out. Option: `fade` (s) |
 | `ratio: r` | Drift *inside* those groups. Options: `glide` (s), `sound` |
 | `spread: s` | Drift *across* groups, for the whole piece. Option: `glide` (s) |
 | `level: v` | Change loudness. Options: `fade` (s), `sound` |
 
-A group can play several sounds at once, which is how crossfades work. Mistakes (an unknown group, a missing sound, a bad time) show in red under the timeline.
+A group can play several sounds at once, which is how crossfades work. Mistakes (an unknown group, a missing sound file, a bad time) show in red under the timeline.
+
+### Sounds
+
+A sound is named by its file path inside `assets/`, without `.wav`: `'demo/door'` is `assets/demo/door.wav`, `'P01/03'` is `assets/P01/03.wav`. For other formats, write the extension (`'rain.mp3'`). To add a sound, drop the file into `assets/` (subfolders work well for keeping pieces apart). There is no list to update and no numbering to shift. Phones download only the sounds of the score being played.
+
+The **Sound** buttons in Free mode come from `LOOP_SOUNDS` in `scores.js`.
 
 ## How the timing works
 

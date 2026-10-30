@@ -22,7 +22,7 @@ script.js          Audio engine, UI logic, and visualization
 Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, causing it to drift ahead of Voice I over time. The offset accumulates until the voices realign — completing a full phase cycle.
 
 ### Audio sample
-- Pick one of five built-in sounds (`assets/1.wav`–`5.wav`) from the sidebar, or drop or browse any WAV / AIFF / MP3 / OGG file (AIFF is decoded in JavaScript, so it works in every browser)
+- Pick one of five built-in sounds (`assets/demo/1.wav`–`5.wav`) from the sidebar, or drop or browse any WAV / AIFF / MP3 / OGG file (AIFF is decoded in JavaScript, so it works in every browser)
 - Waveform thumbnail, plus a circular playhead display: the loop is one turn around a ring, with one hand per voice and the phase offset shown as an arc between them
 - Voice II's position is tracked across speed changes, so pausing phasing holds the current offset
 

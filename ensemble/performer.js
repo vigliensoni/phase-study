@@ -82,12 +82,13 @@ function ctxTimeFor(tShared) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // SOUNDS
 // ═══════════════════════════════════════════════════════════════════════════════
-const buffers = new Map(); // n → Promise<AudioBuffer>
+const buffers = new Map(); // sound id → Promise<AudioBuffer>
 const ready = new Set();
 
 function getBuffer(n) {
+  n = soundId(n);
   if (!buffers.has(n)) {
-    buffers.set(n, fetch(SOUNDS[n - 1])
+    buffers.set(n, fetch(soundURL(n))
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
       .then(d => ctx.decodeAudioData(d))
       .then(b => { decoded.set(n, b); ready.add(n); sendPresence(); return b; })
@@ -173,7 +174,7 @@ let compiled = { json: null, comp: null };
 
 function compiledFor(S) {
   const json = JSON.stringify(S.score);
-  if (compiled.json !== json) compiled = { json, comp: compileScore(S.score, SOUNDS.length) };
+  if (compiled.json !== json) compiled = { json, comp: compileScore(S.score) };
   return compiled.comp;
 }
 
@@ -312,8 +313,8 @@ function sendPresence() {
   client.publish(T.presence, JSON.stringify({
     id: myId, voice, rtt: minRtt, jitter,
     lat: ctx ? ((ctx.outputLatency || ctx.baseLatency || 0) * 1000) : null,
-    ready: state && state.mode === 'score' ? ready.size === SOUNDS.length
-         : state ? ready.has(state.sound) : ready.size > 0,
+    ready: state && state.mode === 'score' ? compiledFor(state).sounds.every(n => ready.has(n))
+         : state ? ready.has(soundId(state.sound)) : ready.size > 0,
     assign: state ? myAssign(state) : null,
   }));
 }
@@ -338,7 +339,9 @@ function connect() {
     if (topic === T.state) {
       if (m.v !== 1) return;
       state = m;
-      getBuffer(m.sound).catch(() => {});
+      // Start downloading what this state needs: the whole score, or the loop
+      const need = m.mode === 'score' ? compiledFor(m).sounds : [m.sound];
+      need.forEach(n => getBuffer(n).catch(() => {}));
       return applyState();
     }
     if (topic === T.assign && m.map && m.map[myId]) setVoice(m.map[myId]);
@@ -409,8 +412,8 @@ async function join() {
   setVoice(+document.getElementById('voiceInput').value || voice);
 
   connect();
-  // Preload every sound so the conductor can switch without a gap
-  SOUNDS.forEach((_, i) => getBuffer(i + 1).catch(() => {}));
+  // Preload the Free-mode sounds so the conductor can switch without a gap
+  LOOP_SOUNDS.forEach(n => getBuffer(n).catch(() => {}));
 
   setInterval(sendPing, 2500);
   setInterval(sendPresence, 3000);
