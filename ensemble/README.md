@@ -15,7 +15,7 @@ index.html       Performer page (open on each phone)
 conductor.html   Conductor page (open on the laptop / projector)
 net.js           Shared: broker connection, topics, the phase math, ring drawing
 score-engine.js  Shared: compiles a score into per-group layers; drift maths
-scores.js        The scores (edit this to write your own)
+scores.js        The sound files and the scores (edit this to write your own)
 performer.js     Clock sync, scheduling, drift correction, audio
 conductor.js     Shared clock, state of the piece, roster, controls
 ensemble.css     Layout (on top of ../style.css)

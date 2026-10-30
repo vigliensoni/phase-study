@@ -9,25 +9,6 @@
 // server). The site itself stays static; only the broker is "live".
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Built-in sounds (same files as the single-browser study one folder up)
-const SOUNDS = [
-  '../assets/1.wav',
-  '../assets/2.wav',
-  '../assets/3.wav',
-  '../assets/4.wav',
-  '../assets/5.wav',
-  '../assets/karateka.wav',
-  '../assets/door.wav',
-  '../assets/wall-thump.wav',
-  '../assets/cowbell-minipops.wav',
-  '../assets/C03-S01-repeater_FAV.wav',
-  '../assets/sine-110.wav',
-  '../assets/multitrack-test/a.wav',
-  '../assets/multitrack-test/b.wav',
-  '../assets/multitrack-test/c.wav',
-  '../assets/multitrack-test/d.wav'
-];
-
 // ── Config (overridable from the URL: ?room=ABCD&broker=wss://…) ─────────────
 const params     = new URLSearchParams(location.search);
 const BROKER_URL = params.get('broker') || 'wss://broker.hivemq.com:8884/mqtt';

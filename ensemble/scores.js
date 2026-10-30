@@ -16,7 +16,7 @@
 // Event fields
 //   at      when: "m:ss" or seconds from the start
 //   groups  which groups: "ABC", ["A","D"], or "all" (default: all)
-//   play    start sound n (1–5) in those groups
+//   play    start sound n (from SOUNDS below) in those groups
 //     ratio   drift inside the group (default: the group's last ratio, or 1)
 //     fade    fade-in, seconds
 //     level   0–1 (default 1)
@@ -31,6 +31,26 @@
 //
 // `end` (optional) is when the conductor shows the piece as finished.
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// SOUNDS — the files a score can play; `play: n` is SOUNDS[n − 1].
+// (Paths are relative to this folder.)
+const SOUNDS = [
+  '../assets/1.wav',
+  '../assets/2.wav',
+  '../assets/3.wav',
+  '../assets/4.wav',
+  '../assets/5.wav',
+  '../assets/karateka.wav',
+  '../assets/door.wav',
+  '../assets/wall-thump.wav',
+  '../assets/cowbell-minipops.wav',
+  '../assets/C03-S01-repeater_FAV.wav',
+  '../assets/sine-110.wav',
+  '../assets/multitrack-test/a.wav',
+  '../assets/multitrack-test/b.wav',
+  '../assets/multitrack-test/c.wav',
+  '../assets/multitrack-test/d.wav'
+];
 
 const SCORES = [
   {
