@@ -424,7 +424,9 @@ function drawTimeline() {
     c.beginPath(); c.moveTo(left, y1); c.lineTo(W, y1); c.stroke();
 
     for (const L of comp.layers.filter(L => L.group === g)) {
-      const tEnd = isFinite(L.stop) ? L.stop : end;
+      // A one-shot ends with its file (shown at normal speed; drift shifts it a little)
+      const fileEnd = L.loop === false && durations[L.sound] ? L.start + durations[L.sound] : Infinity;
+      const tEnd = Math.min(isFinite(L.stop) ? L.stop : end, fileEnd);
       const hue = soundHue(L.sound);
       // Gain envelope as a filled shape
       c.fillStyle = `hsl(${hue} 65% 50% / 0.35)`;

@@ -20,6 +20,7 @@
 //     ratio   drift inside the group (default: the group's last ratio, or 1)
 //     fade    fade-in, seconds
 //     level   0–1 (default 1)
+//     loop    false = play the file once (default: loop)
 //   stop    fade out a sound, or "all"
 //     fade    fade-out, seconds
 //   ratio   change drift inside the groups

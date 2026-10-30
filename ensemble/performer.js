@@ -215,11 +215,12 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     if (!buffer) continue;
     const drift = effectiveDrift(L, S.overrides);
     const t0 = Math.max(st, L.start);           // when this node starts sounding
+    if (layerDone(L, drift, rank, t0, buffer.duration, comp.spread)) continue; // one-shot already over
     const c0 = t0 === st ? at : c(t0);
 
     const src = ctx.createBufferSource(), gain = ctx.createGain();
     src.buffer = buffer;
-    src.loop = true;
+    src.loop = L.loop !== false;
     src.connect(gain).connect(master);
 
     // Drift (inside the group) + spread (across groups) → playback rate,
@@ -565,7 +566,8 @@ function scoreHands(S) {
   const st = (sharedNow() - S.T0) / 1000;
   let best = null, bestG = 0.001;
   for (const n of run.nodes) {
-    const g = st >= n.L.start && st <= n.L.stop ? valueAt(n.L.gain, st) : 0;
+    const done = layerDone(n.L, n.drift, run.rank, st, n.buffer.duration, run.comp.spread);
+    const g = st >= n.L.start && st <= n.L.stop && !done ? valueAt(n.L.gain, st) : 0;
     if (g > bestG) { best = n; bestG = g; }
   }
   if (nowTxt) nowTxt.textContent = st < 0 ? `starts in ${Math.ceil(-st)} s`

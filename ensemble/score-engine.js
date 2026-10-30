@@ -158,6 +158,7 @@ function compileScore(score) {
         const level = e.level ?? 1;
         const L = {
           id: `${g}${n}@${e.t}`, group: g, gi: groups.indexOf(g), sound: n, start: e.t, stop: Infinity,
+          loop: e.loop !== false,   // loops unless the event says loop: false
           gain:  [{ t: e.t, v: 0 }, { t: e.t + Math.max(fade, 0.02), v: level }],
           drift: [{ t: e.t, v: groupRatio[g] - 1 }],
         };
@@ -226,11 +227,21 @@ function effectiveDrift(L, overrides) {
   return pts;
 }
 
-// Loop position (seconds into the buffer) of the phone of rank k at score time t
+// Seconds of the sound played so far by the phone of rank k at score time t
+function layerOffset(L, drift, rank, t, spread) {
+  return (t - L.start) + (rank - 1) * integrate(drift, L.start, t)
+       + (spread ? L.gi * integrate(spread, L.start, t) : 0);
+}
+
+// Position in the buffer: wraps around for a loop, stops at the end otherwise
 function layerPos(L, drift, rank, t, dur, spread) {
-  const p = (t - L.start) + (rank - 1) * integrate(drift, L.start, t)
-          + (spread ? L.gi * integrate(spread, L.start, t) : 0);
-  return ((p % dur) + dur) % dur;
+  const p = layerOffset(L, drift, rank, t, spread);
+  return L.loop === false ? Math.min(Math.max(p, 0), dur) : ((p % dur) + dur) % dur;
+}
+
+// Has a one-shot (loop: false) layer run past the end of its file?
+function layerDone(L, drift, rank, t, dur, spread) {
+  return L.loop === false && layerOffset(L, drift, rank, t, spread) >= dur;
 }
 
 // Playback-rate curve (minus 1) for phone `rank` of this layer's group

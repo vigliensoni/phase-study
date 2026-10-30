@@ -102,7 +102,7 @@ Add an entry to the `SCORES` list in `scores.js`:
 |---|---|
 | `at` | When: `"m:ss"` or seconds |
 | `groups` | On an event: `"ABC"`, `["A","D"]`, or `"all"` (default). On the score: how many groups |
-| `play: 'name'` | Start a sound in those groups (see *Sounds* below). Options: `ratio`, `fade` (s), `level` (0–1) |
+| `play: 'name'` | Start a sound in those groups (see *Sounds* below). Options: `ratio`, `fade` (s), `level` (0–1), `loop: false` (play once; default is to loop) |
 | `stop: 'name'` / `stop: "all"` | Fade out. Option: `fade` (s) |
 | `ratio: r` | Drift *inside* those groups. Options: `glide` (s), `sound` |
 | `spread: s` | Drift *across* groups, for the whole piece. Option: `glide` (s) |
