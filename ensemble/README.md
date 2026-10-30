@@ -104,7 +104,7 @@ Add an entry to the `SCORES` list in `scores.js`:
 | `at` | When: `"m:ss"` or seconds |
 | `groups` | On an event: `"ABC"`, `["A","D"]`, or `"all"` (default). On the score: how many groups |
 | `credit` | On the score: a credit line, shown on the conductor and on every phone while the score is selected |
-| `play: 'name'` | Start a sound in those groups (see *Sounds* below). Options: `ratio`, `fade` (s), `level` (0–1), `loop: false` (play once; default is to loop; playing it again restarts it) |
+| `play: 'name'` | Start a sound in those groups (see *Sounds* below). Options: `ratio`, `fade` (s), `level` (0–1), `loop: false` (play once; default is to loop; playing it again restarts it), `fadeOut` (s; one-shots: fade out over the end of the file) |
 | `stop: 'name'` / `stop: "all"` | Fade out. Option: `fade` (s) |
 | `ratio: r` | Drift *inside* those groups. Options: `glide` (s), `sound` |
 | `spread: s` | Drift *across* groups, for the whole piece. Option: `glide` (s) |

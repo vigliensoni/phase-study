@@ -240,6 +240,15 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     if (midSound) gain.gain.linearRampToValueAtTime(valueAt(L.gain, t0 + fade), c0 + fade);
     scheduleCurve(gain.gain, L.gain.filter(p => p.t > t0 + (midSound ? fade : 0)), c, v => v);
 
+    // One-shot fadeOut: a second gain stage that fades over the end of the file
+    const tail = tailCurve(L, L.loop === false ? fileEndTime(L, drift, rank, buffer.duration, comp.spread) : 0);
+    if (tail) {
+      const tg = ctx.createGain();
+      gain.disconnect(); gain.connect(tg).connect(scoreBus);
+      tg.gain.setValueAtTime(valueAt(tail, t0), c0);
+      scheduleCurve(tg.gain, tail.filter(p => p.t > t0), c, v => v);
+    }
+
     src.start(c0, layerPos(L, drift, rank, t0, buffer.duration, comp.spread));
     if (isFinite(L.stop)) src.stop(c(L.stop) + 0.05);
     nodes.push({ src, gain, L, drift, buffer });

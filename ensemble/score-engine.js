@@ -93,6 +93,28 @@ function rampTo(pts, t, v, dur) {
   return kept;
 }
 
+// Same, but along an S-curve (slow start, slow end: no audible corner at
+// either end of a fade). The S-curve runs on the square root of the gain and
+// is squared back, so the quiet tail of a fade-out (and the start of a
+// fade-in) eases in and out of silence instead of dropping off: ears hear
+// loudness in decibels, and on that scale a plain S-curve still ends abruptly.
+// Drawn as short straight pieces, so every phone can schedule it with plain
+// linear ramps.
+const FADE_STEPS = 48;
+function fadeTo(pts, t, v, dur) {
+  const cur = valueAt(pts, t);
+  const kept = pts.filter(p => p.t <= t);
+  kept.push({ t, v: cur });
+  if (!(dur > 0)) { kept.push({ t, v }); return kept; }
+  const a = Math.sqrt(Math.max(0, cur)), b = Math.sqrt(Math.max(0, v));
+  for (let i = 1; i <= FADE_STEPS; i++) {
+    const u = i / FADE_STEPS;
+    const x = a + (b - a) * (1 - Math.cos(Math.PI * u)) / 2;
+    kept.push({ t: t + dur * u, v: x * x });
+  }
+  return kept;
+}
+
 // ── Sounds ────────────────────────────────────────────────────────────────────
 // A sound's id is its file path under SOUND_DIR (scores.js), ".wav" implied:
 // 'demo/door' → ../assets/demo/door.wav, 'P01/03' → ../assets/P01/03.wav
@@ -159,7 +181,7 @@ function compileScore(score) {
           // Playing a one-shot again restarts it: the earlier one (if it is
           // still sounding — the file may well have ended) fades out quickly
           const f = 0.05;
-          prev.gain = rampTo(prev.gain, e.t, 0, f);
+          prev.gain = fadeTo(prev.gain, e.t, 0, f);
           prev.stop = e.t + f;
           active[g].delete(n);
         } else if (prev) { errors.push(`event ${e.i + 1}: sound ${n} already playing in ${g}`); continue; }
@@ -167,7 +189,8 @@ function compileScore(score) {
         const L = {
           id: `${g}${n}@${e.t}`, group: g, gi: groups.indexOf(g), sound: n, start: e.t, stop: Infinity,
           loop: e.loop !== false,   // loops unless the event says loop: false
-          gain:  [{ t: e.t, v: 0 }, { t: e.t + Math.max(fade, 0.02), v: level }],
+          fadeOut: e.loop === false ? Math.max(0, +(e.fadeOut ?? 0)) : 0, // over the file's last seconds
+          gain:  fadeTo([{ t: e.t, v: 0 }], e.t, level, Math.max(fade, 0.02)),
           drift: [{ t: e.t, v: groupRatio[g] - 1 }],
         };
         active[g].set(n, L);
@@ -188,7 +211,7 @@ function compileScore(score) {
                  : active[g].has(soundId(e.stop)) ? [active[g].get(soundId(e.stop))] : [];
         for (const L of ls) {
           const f = Math.max(fade, 0.05);
-          L.gain = rampTo(L.gain, e.t, 0, f);
+          L.gain = fadeTo(L.gain, e.t, 0, f);
           L.stop = e.t + f;
           active[g].delete(L.sound);
         }
@@ -204,7 +227,7 @@ function compileScore(score) {
       }
     }
     if (e.level !== undefined) {
-      for (const g of gs) for (const L of targets(g)) L.gain = rampTo(L.gain, e.t, +e.level, fade);
+      for (const g of gs) for (const L of targets(g)) L.gain = fadeTo(L.gain, e.t, +e.level, fade);
     }
   }
 
@@ -245,6 +268,26 @@ function layerOffset(L, drift, rank, t, spread) {
 function layerPos(L, drift, rank, t, dur, spread) {
   const p = layerOffset(L, drift, rank, t, spread);
   return L.loop === false ? Math.min(Math.max(p, 0), dur) : ((p % dur) + dur) % dur;
+}
+
+// Score time at which the phone of rank k reaches the end of a one-shot's file
+// (faster phones get there sooner). Offsets only grow, so bisection finds it.
+function fileEndTime(L, drift, rank, dur, spread) {
+  let lo = L.start, hi = L.start + dur * 2 + 1;
+  while (layerOffset(L, drift, rank, hi, spread) < dur && hi - L.start < 1e6) hi = L.start + (hi - L.start) * 2;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (layerOffset(L, drift, rank, mid, spread) < dur) lo = mid; else hi = mid;
+  }
+  return hi;
+}
+
+// A one-shot's fadeOut: an S-curve from 1 to 0 ending where the file ends
+// (multiplies the layer's own gain), or null
+function tailCurve(L, tFileEnd) {
+  if (!(L.loop === false && L.fadeOut > 0)) return null;
+  const f = Math.min(L.fadeOut, tFileEnd - L.start);
+  return fadeTo([{ t: tFileEnd - f, v: 1 }], tFileEnd - f, 0, f);
 }
 
 // Has a one-shot (loop: false) layer run past the end of its file?

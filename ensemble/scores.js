@@ -22,6 +22,7 @@
 //     level   0–1 (default 1)
 //     loop    false = play the file once (default: loop); playing it
 //             again in the same group restarts it
+//     fadeOut (one-shots) fade out over the last seconds of the file
 //   stop    fade out a sound, or "all"
 //     fade    fade-out, seconds
 //   ratio   change drift inside the groups
@@ -30,6 +31,9 @@
 //   spread  change drift across groups (the whole piece; `groups` is ignored)
 //     glide   seconds to move to the new value
 //   level   change loudness; with fade (and optionally sound)
+//
+// All fades (fade-in, fade-out, level changes) follow an S-curve: slow at
+// both ends, so they start and land without a bump.
 //
 // `end` (optional) is when the conductor shows the piece as finished.
 // `credit` (optional) is shown on the conductor and on every phone while the

@@ -395,6 +395,22 @@ const fmtAgo = ms => ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.floor(m
 // Colour by the sound's place in the score (first sound, second sound, …)
 const soundHue = n => [95, 20, 200, 285, 335, 0, 45, 170, 245][Math.max(0, comp.sounds.indexOf(n)) % 9];
 
+// The corners of a piecewise-linear curve between t0 and t1, for drawing it
+// exactly (sampling at even steps would smear a 20 ms attack over seconds)
+function curvePoints(pts, t0, t1) {
+  return [{ t: t0, v: valueAt(pts, t0) }, ...pts.filter(p => p.t > t0 && p.t < t1),
+          { t: t1, v: valueLeft(pts, t1) }];
+}
+
+// A layer's loudness as drawn: its gain, times a one-shot's fadeOut if any
+function envelopePoints(L, tail, tEnd) {
+  const pts = curvePoints(L.gain, L.start, tEnd);
+  if (!tail) return pts;
+  return [...pts.map(p => ({ t: p.t, v: p.v * valueAt(tail, p.t) })),
+          ...tail.filter(p => p.t > L.start && p.t < tEnd).map(p => ({ t: p.t, v: p.v * valueAt(L.gain, p.t) }))]
+    .sort((a, b) => a.t - b.t);
+}
+
 function drawTimeline() {
   const canvas = document.getElementById('timeline');
   const dpr = window.devicePixelRatio || 1;
@@ -438,11 +454,8 @@ function drawTimeline() {
       c.strokeStyle = muted ? 'hsl(0 0% 50% / 0.5)' : `hsl(${hue} 65% 45%)`;
       c.beginPath();
       c.moveTo(x(L.start), y1 - 2 * dpr);
-      const N = 120;
-      for (let i = 0; i <= N; i++) {
-        const t = L.start + (tEnd - L.start) * i / N;
-        c.lineTo(x(t), y1 - 2 * dpr - (laneH - 8 * dpr) * valueAt(L.gain, t));
-      }
+      for (const p of envelopePoints(L, tailCurve(L, fileEnd), tEnd))
+        c.lineTo(x(p.t), y1 - 2 * dpr - (laneH - 8 * dpr) * p.v);
       c.lineTo(x(tEnd), y1 - 2 * dpr);
       c.closePath(); c.fill(); c.stroke();
       // Drift curve (dashed), scaled to the largest drift in the score
@@ -451,11 +464,10 @@ function drawTimeline() {
       c.setLineDash([3 * dpr, 3 * dpr]);
       c.strokeStyle = themeColor(muted ? '--dim' : '--fg'); c.lineWidth = 1 * dpr;
       c.beginPath();
-      for (let i = 0; i <= N; i++) {
-        const t = L.start + (tEnd - L.start) * i / N;
-        const yy = y1 - 2 * dpr - (laneH - 8 * dpr) * Math.max(0, valueAt(drift, t)) / maxD;
-        i ? c.lineTo(x(t), yy) : c.moveTo(x(t), yy);
-      }
+      curvePoints(drift, L.start, tEnd).forEach((p, i) => {
+        const yy = y1 - 2 * dpr - (laneH - 8 * dpr) * Math.max(0, p.v) / maxD;
+        i ? c.lineTo(x(p.t), yy) : c.moveTo(x(p.t), yy);
+      });
       c.stroke(); c.setLineDash([]); c.lineWidth = 1;
       // Label: sound and starting ratio
       c.fillStyle = themeColor(muted ? '--mid' : '--fg');
