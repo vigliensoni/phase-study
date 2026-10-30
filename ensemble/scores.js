@@ -189,10 +189,13 @@ const SCORES = [
     title: 'PTC 01',
     groups: 4,
     events: [
-      { at: '0:00', groups: 'A', play: 'PTC/Insectes_Soli_SeqJ_03.mp3', ratio: 1.01, level: 0.6},
-      { at: '0:20', groups: 'B', play: 'PTC/Mb_Ite_SeqJ_01.mp3', ratio: 1.01},
-      { at: '0:40', groups: 'C', play: 'PTC/Mv_Diva_Emb_ValveE_SeqJ_01.mp3', ratio: 1.01},
-      { at: '0:40', groups: 'D', play: 'PTC/Mv_n2_BagtStyro_Ite_03.mp3', ratio: 1.01, level: 0.3},
+      { at: '0:00', groups: 'A', play: 'PTC/Insectes_Soli_SeqJ_03.mp3', ratio: 1.01, level: 0.6, loop: false },
+      { at: '0:20', groups: 'B', play: 'PTC/Mb_Ite_SeqJ_01.mp3', ratio: 1.01 },
+      { at: '0:40', groups: 'C', play: 'PTC/Mv_Diva_Emb_ValveE_SeqJ_01.mp3', ratio: 1.01 },
+      { at: '0:50', groups: 'D', play: 'PTC/Mv_n2_BagtStyro_Ite_03.mp3', ratio: 1.01, level: 0.3, loop: false, fade: 10 },
+      // { at: '1:30', groups: 'D', play: 'PTC/Mv_n2_BagtStyro_Ite_03.mp3', ratio: 1.01, level: 0.3, loop: false, fade: 5 },
+      { at: '2:00', groups: 'D', play: 'PTC/Mv_SeqJ_EmbPlomb_Ite_02.mp3', ratio: 1.01, level: 0.3, loop: false, fade: 5 },
+      { at: '3:00', groups: 'A', play: 'PTC/Data_Processing_001.wav', ratio: 1.01, level: 0.8, fade: 10 },
       { at: '5:55', groups: 'all', stop: 'all', fade: 5 }
     ],
   },   
