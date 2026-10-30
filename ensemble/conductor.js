@@ -219,6 +219,7 @@ function selectScore(i) {
   S.scoreIdx = i;
   S.score = SCORES[i];
   S.muted = [];
+  document.getElementById('fromCtrl').value = '0:00'; // a new piece starts from the top
   comp = compileScore(S.score);
   loadDurations(comp.sounds);
   if (S.playing) { S.playing = false; S.stopAt = localNow() + LEAD_CHANGE; }
