@@ -43,11 +43,11 @@
     <section>
       <div class="ctrl-title">Join</div>
       <div class="join-card">
-        <div class="qr" id="qr"></div>
+        <button type="button" class="qr" id="qr" title="Show a large QR code" aria-label="Show a large QR code"></button>
         <div>
           <div class="label">Room</div>
           <div class="room-code" id="roomTxt">—</div>
-          <p class="hint" style="margin:0.6rem 0 0.3rem">Scan and tap&nbsp;Join.</p>
+          <p class="hint" style="margin:0.6rem 0 0.3rem">Scan and tap&nbsp;Join. Click the code to enlarge it.</p>
           <a class="join-link" id="joinLink" target="_blank" rel="noopener"></a>
         </div>
       </div>
@@ -116,6 +116,14 @@
 
   </div>
 </div>
+
+<!-- Large QR code for the room, before the piece. Esc or a click closes it. -->
+<dialog class="qr-overlay" id="qrOverlay" aria-label="Large QR code to join">
+  <div class="qr-big" id="qrBig"></div>
+  <div class="qr-big-join">Scan and tap Join</div>
+  <div class="qr-big-link" id="qrBigLink"></div>
+  <div class="qr-big-count" id="qrBigCount"></div>
+</dialog>
 
 <!-- Load the scripts with a fresh ?v= each time, so a phone never runs a
      cached copy of old code (some servers let browsers keep files for an hour) -->

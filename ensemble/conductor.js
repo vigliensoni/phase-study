@@ -392,6 +392,7 @@ function renderRoster() {
   const dupes = new Set(labels.filter((v, i) => labels.indexOf(v) !== i));
 
   document.getElementById('countTxt').textContent = up.length + (asleep ? ` · ${asleep} asleep` : '');
+  document.getElementById('qrBigCount').textContent = `${up.length} ${up.length === 1 ? 'phone' : 'phones'} joined`;
   document.getElementById('groupCounts').textContent = score
     ? comp.groups.map(g => `${g} ${up.filter(r => S.assign[r.id] && S.assign[r.id][0] === g).length}`).join(' · ')
     : '';
@@ -594,8 +595,17 @@ try {
   const qr = qrcode(0, 'M');
   qr.addData(performerURL);
   qr.make();
-  document.getElementById('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+  const svg = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+  document.getElementById('qr').innerHTML = document.getElementById('qrBig').innerHTML = svg;
 } catch (e) { /* QR library unavailable: the link is still there */ }
+
+// Large QR code: a modal <dialog> gives us Esc to close and focus handling
+const qrOverlay = document.getElementById('qrOverlay');
+document.getElementById('qrBigLink').textContent = performerURL;
+document.getElementById('qr').addEventListener('click', ev => {
+  if (ev.currentTarget.firstChild) qrOverlay.showModal(); // nothing to enlarge without the library
+});
+qrOverlay.addEventListener('click', () => qrOverlay.close());
 
 document.getElementById('scoreSel').innerHTML =
   SCORES.map((s, i) => `<option value="${i}">${s.title || 'Score ' + (i + 1)}</option>`).join('');

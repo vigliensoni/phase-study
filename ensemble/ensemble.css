@@ -31,8 +31,21 @@ input[type=number] {
 @media (max-width: 900px) { .cond-grid { grid-template-columns: 1fr; } }
 
 .join-card { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
-.join-card .qr { width: 160px; height: 160px; background: #fff; padding: 4px; flex: none; }
+.join-card .qr { width: 160px; height: 160px; background: #fff; padding: 4px; flex: none; border: 0; cursor: zoom-in; }
 .join-card .qr svg { width: 100%; height: 100%; display: block; }
+
+/* Large QR code: always black on white, in both themes, so it scans */
+.qr-overlay {
+  box-sizing: border-box; width: 100vw; height: 100dvh; max-width: none; max-height: none;
+  margin: 0; padding: 1rem; border: 0; background: #fff; color: #000; cursor: zoom-out;
+  text-align: center;
+}
+.qr-overlay[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; }
+.qr-big { width: min(100%, 100dvh - 8.5rem); aspect-ratio: 1; flex: none; }
+.qr-big svg { width: 100%; height: 100%; display: block; }
+.qr-big-join { font-size: 1.3rem; letter-spacing: 0.08em; }
+.qr-big-link { font-size: 0.85rem; overflow-wrap: anywhere; }
+.qr-big-count { font-size: 0.85rem; }
 .room-code {
   font-family: 'Roboto Condensed', sans-serif; font-weight: 100;
   font-size: 3rem; letter-spacing: 0.2em; line-height: 1;
