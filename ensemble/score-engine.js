@@ -116,13 +116,24 @@ function fadeTo(pts, t, v, dur) {
 }
 
 // ── Sounds ────────────────────────────────────────────────────────────────────
-// A sound's id is its file path under SOUND_DIR (scores.js), ".wav" implied:
-// 'demo/door' → ../assets/demo/door.wav, 'P01/03' → ../assets/P01/03.wav
+// A sound's id is its file path, ".wav" implied. The scores in scores.js find
+// it under SOUND_DIR: 'demo/door' → ../assets/demo/door.wav. A piece loaded
+// from a link (pieces.js) finds it in its own folder, `base`: 'audio/rain.mp3'
+// → <folder>/audio/rain.mp3. A score can also name its sounds in a "sounds"
+// list ({ rain: 'audio/rain.mp3' }), and then play them by name.
 const soundId = x => (x === undefined || x === null) ? '' : String(x).trim();
 
-function soundURL(id) {
+function soundPath(id, score) {
   id = soundId(id);
-  return SOUND_DIR + (/\.[a-z0-9]+$/i.test(id) ? id : id + '.wav');
+  const listed = score && score.sounds && typeof score.sounds === 'object' && score.sounds[id];
+  if (listed) return String(listed);
+  return /\.[a-z0-9]+$/i.test(id) ? id : id + '.wav';
+}
+
+// Absolute URL of a sound: soundURL(id) for the built-in sounds,
+// soundURL(id, score, base) for a piece's own
+function soundURL(id, score, base) {
+  return new URL(soundPath(id, score), new URL(base || SOUND_DIR, document.baseURI)).href;
 }
 
 // ── Effects ───────────────────────────────────────────────────────────────────

@@ -2,7 +2,8 @@
 // CONDUCTOR — owns the shared clock and the state of the piece.
 // Two modes:
 //   Free   one sound, live controls (the original ensemble)
-//   Score  a timed piece from scores.js, played by groups of phones
+//   Score  a timed piece, played by groups of phones: one of scores.js, or a
+//          piece loaded from a link (a student's GitHub repo; see pieces.js)
 // The conductor never plays sound itself; open a phone tab too to monitor.
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -30,12 +31,17 @@ let S = {
   sound: LOOP_SOUNDS[0], T0: 0, tA: 0, phiA: 0, ratio: 1.002, paused: false,
   // score mode
   scoreIdx: 0, score: SCORES[0], overrides: [], assign: {}, nextSlot: 0,
+  source: null, // folder of a piece loaded from a link (its sounds are there); null for scores.js
+  link: null,   // the link it was loaded from
   muted: [], // groups silenced from the timeline (click a group's letter)
 };
 let adoptedRetained = false; // after a reload, pick up where the room was
-let durations = {};          // sound id → seconds (for the ring display)
-const missing = new Set();   // sound ids whose file couldn't be loaded
+let durations = {};          // sound URL → seconds (ring display, one-shots on the timeline)
+const missing = new Set();   // sound URLs whose file couldn't be loaded
 let comp = compileScore(S.score);
+
+// Where the score's sounds are: the built-in folder, or the linked piece's own
+const scoreURL = n => soundURL(n, S.score, S.source);
 
 const roster = new Map();    // id → { voice, assign, rtt, jitter, lat, ready, first, last, gone }
 
@@ -83,7 +89,7 @@ client.on('message', (topic, buf) => {
     if (m.v === 1 && m.epoch) {
       S = { ...S, ...m, mode: m.mode || 'free' };
       comp = compileScore(S.score);
-      loadDurations(comp.sounds);
+      loadDurations(comp.sounds.map(scoreURL));
       refreshUI();
     }
   }
@@ -233,16 +239,44 @@ function renderCalib() {
 const scoreNow = () => (localNow() - S.T0) / 1000;
 
 function selectScore(i) {
-  i = +i;
-  S.scoreIdx = i;
-  S.score = SCORES[i];
+  if (i === 'link') return; // the piece already loaded from a link
+  setScore(SCORES[+i], +i, null, null);
+}
+
+// Make `score` the piece: one of scores.js (idx), or one loaded from `link`,
+// whose sounds are in the folder `source`
+function setScore(score, idx, source, link) {
+  S.scoreIdx = idx;
+  S.score = score;
+  S.source = source;
+  S.link = link;
   S.muted = [];
   document.getElementById('fromCtrl').value = '0:00'; // a new piece starts from the top
   comp = compileScore(S.score);
-  loadDurations(comp.sounds);
+  loadDurations(comp.sounds.map(scoreURL));
   if (S.playing) { S.playing = false; S.stopAt = localNow() + LEAD_CHANGE; }
   rebalance(false); // re-deal every phone into this score's groups
   publishState();
+}
+
+// Load a piece from a link (a student's GitHub repo, usually): its score.json
+// goes to every phone, and each phone fetches its sounds from that folder.
+let linkBusy = false;
+async function loadLink() {
+  const input = document.getElementById('linkCtrl'), status = document.getElementById('linkStatus');
+  if (linkBusy) return;
+  linkBusy = true;
+  status.textContent = 'Loading…';
+  status.classList.remove('bad');
+  try {
+    const link = input.value.trim();
+    const { base, score } = await loadPiece(link);
+    setScore(score, -1, base, link);
+    status.textContent = `Loaded “${comp.title}” from ${base}`;
+  } catch (e) {
+    status.textContent = e.message;
+    status.classList.add('bad');
+  } finally { linkBusy = false; }
 }
 
 function startScore() {
@@ -297,17 +331,17 @@ function ensureAssigned() {
 
 // ── Durations (for drawing the ring; also finds sounds whose file is missing) ─
 const durCtx = new OfflineAudioContext(1, 1, 44100);
-async function loadDurations(ids) {
-  ids = ids.map(soundId).filter(n => !(n in durations) && !missing.has(n));
-  await Promise.all(ids.map(async n => {
-    durations[n] = null; // loading
+async function loadDurations(urls) {
+  urls = urls.filter(u => !(u in durations) && !missing.has(u));
+  await Promise.all(urls.map(async u => {
+    durations[u] = null; // loading
     try {
-      const r = await fetch(soundURL(n));
+      const r = await fetch(u);
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      durations[n] = (await durCtx.decodeAudioData(await r.arrayBuffer())).duration;
-    } catch (e) { delete durations[n]; missing.add(n); }
+      durations[u] = (await durCtx.decodeAudioData(await r.arrayBuffer())).duration;
+    } catch (e) { delete durations[u]; missing.add(u); }
   }));
-  if (ids.length) refreshUI();
+  if (urls.length) refreshUI();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -338,10 +372,12 @@ function refreshUI() {
   document.querySelectorAll('.sound-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.sound === soundId(S.sound)));
 
-  document.getElementById('scoreSel').value = S.scoreIdx;
+  renderScoreMenu();
+  document.getElementById('editLink').href = 'editor.html?' +
+    (S.source ? 'link=' + encodeURIComponent(S.link || S.source) : 'score=' + S.scoreIdx);
   document.getElementById('scoreCredit').textContent = (S.score && S.score.credit) || '';
   document.getElementById('scoreErr').textContent = [...comp.errors,
-    ...comp.sounds.filter(n => missing.has(n)).map(n => `sound "${n}" not found (${soundURL(n)})`)].join(' · ');
+    ...comp.sounds.filter(n => missing.has(scoreURL(n))).map(n => `sound "${n}" not found (${scoreURL(n)})`)].join(' · ');
   document.getElementById('assignBtn').innerHTML = score ? '⇢ &nbsp;Re-deal groups' : '⇢ &nbsp;Number voices 1…N';
   document.getElementById('driftTitle').textContent = score ? 'Live drift override' : 'Drift — Voice 2 speed';
   document.getElementById('driftHint').innerHTML = score
@@ -357,6 +393,18 @@ function refreshUI() {
   }
   renderStatus();
 }
+
+// The scores of scores.js, plus the piece loaded from a link (if that's the one)
+function renderScoreMenu() {
+  const sel = document.getElementById('scoreSel');
+  const opts = SCORES.map((s, i) => [String(i), s.title || 'Score ' + (i + 1)]);
+  if (S.source) opts.push(['link', `Linked: ${comp.title}`]);
+  const html = opts.map(([v, t]) => `<option value="${v}">${escapeHTML(t)}</option>`).join('');
+  if (sel.dataset.html !== html) sel.innerHTML = sel.dataset.html = html;
+  sel.value = S.source ? 'link' : String(S.scoreIdx);
+}
+
+const escapeHTML = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
 
 function renderStatus() {
   let txt;
@@ -410,132 +458,14 @@ function renderRoster() {
 
 const fmtAgo = ms => ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.floor(ms / 60000)} min`;
 
-// ── Timeline (score mode) ─────────────────────────────────────────────────────
-// Colour by the sound's place in the score (first sound, second sound, …)
-const soundHue = n => [95, 20, 200, 285, 335, 0, 45, 170, 245][Math.max(0, comp.sounds.indexOf(n)) % 9];
-
-// The corners of a piecewise-linear curve between t0 and t1, for drawing it
-// exactly (sampling at even steps would smear a 20 ms attack over seconds)
-function curvePoints(pts, t0, t1) {
-  return [{ t: t0, v: valueAt(pts, t0) }, ...pts.filter(p => p.t > t0 && p.t < t1),
-          { t: t1, v: valueLeft(pts, t1) }];
-}
-
-// A layer's loudness as drawn: its gain, times a one-shot's fadeOut if any
-function envelopePoints(L, tail, tEnd) {
-  const pts = curvePoints(L.gain, L.start, tEnd);
-  if (!tail) return pts;
-  return [...pts.map(p => ({ t: p.t, v: p.v * valueAt(tail, p.t) })),
-          ...tail.filter(p => p.t > L.start && p.t < tEnd).map(p => ({ t: p.t, v: p.v * valueAt(L.gain, p.t) }))]
-    .sort((a, b) => a.t - b.t);
-}
-
+// ── Timeline (score mode; drawn by timeline.js) ───────────────────────────────
 function drawTimeline() {
-  const canvas = document.getElementById('timeline');
-  const dpr = window.devicePixelRatio || 1;
-  const r0 = canvas.getBoundingClientRect();
-  if (!r0.width) return;
-  const W = Math.round(r0.width * dpr), H = Math.round(r0.height * dpr);
-  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-  const c = canvas.getContext('2d');
-  c.clearRect(0, 0, W, H);
-
-  const G = comp.groups.length, left = 28 * dpr, top = 16 * dpr;
-  const laneH = (H - top) / G;
-  const end = Math.max(comp.end, 1);
-  const x = t => left + (W - left - 6 * dpr) * (t / end);
-  c.font = `${10 * dpr}px 'Space Mono', monospace`;
-  c.textBaseline = 'middle';
-
-  // Minute grid
-  c.strokeStyle = themeColor('--dim'); c.fillStyle = themeColor('--mid'); c.lineWidth = 1;
-  const step = end > 600 ? 120 : end > 180 ? 60 : end > 60 ? 15 : 5;
-  for (let t = 0; t <= end; t += step) {
-    c.beginPath(); c.moveTo(x(t), top); c.lineTo(x(t), H); c.stroke();
-    c.fillText(fmtTime(t), x(t) + 3 * dpr, 7 * dpr);
-  }
-
-  comp.groups.forEach((g, gi) => {
-    const y0 = top + gi * laneH, y1 = y0 + laneH;
-    const muted = (S.muted || []).includes(g);
-    c.fillStyle = muted ? themeColor('--dim') : groupColor(g, comp.groups);
-    c.fillText(g, 8 * dpr, (y0 + y1) / 2);
-    // The group's effect chain, at the right end of its lane
-    const fxNames = (comp.effects[g] || []).map(fx => fx.id).join(' → ');
-    if (fxNames) {
-      c.textAlign = 'right'; c.fillStyle = themeColor('--mid');
-      c.fillText(fxNames, W - 8 * dpr, y0 + 10 * dpr);
-      c.textAlign = 'left';
-    }
-    c.strokeStyle = themeColor('--dim');
-    c.beginPath(); c.moveTo(left, y1); c.lineTo(W, y1); c.stroke();
-
-    for (const L of comp.layers.filter(L => L.group === g)) {
-      // A one-shot ends with its file (shown at normal speed; drift shifts it a little)
-      const fileEnd = L.loop === false && durations[L.sound] ? L.start + durations[L.sound] : Infinity;
-      const tEnd = Math.min(isFinite(L.stop) ? L.stop : end, fileEnd);
-      const hue = soundHue(L.sound);
-      // Gain envelope as a filled shape (grey when the group is muted)
-      c.fillStyle = muted ? 'hsl(0 0% 50% / 0.15)' : `hsl(${hue} 65% 50% / 0.35)`;
-      c.strokeStyle = muted ? 'hsl(0 0% 50% / 0.5)' : `hsl(${hue} 65% 45%)`;
-      c.beginPath();
-      c.moveTo(x(L.start), y1 - 2 * dpr);
-      for (const p of envelopePoints(L, tailCurve(L, fileEnd), tEnd))
-        c.lineTo(x(p.t), y1 - 2 * dpr - (laneH - 8 * dpr) * p.v);
-      c.lineTo(x(tEnd), y1 - 2 * dpr);
-      c.closePath(); c.fill(); c.stroke();
-      // Drift curve (dashed), scaled to the largest drift in the score
-      const maxD = Math.max(1e-6, ...comp.layers.flatMap(l => effectiveDrift(l, S.overrides).map(p => p.v)));
-      const drift = effectiveDrift(L, S.overrides);
-      c.setLineDash([3 * dpr, 3 * dpr]);
-      c.strokeStyle = themeColor(muted ? '--dim' : '--fg'); c.lineWidth = 1 * dpr;
-      c.beginPath();
-      curvePoints(drift, L.start, tEnd).forEach((p, i) => {
-        const yy = y1 - 2 * dpr - (laneH - 8 * dpr) * Math.max(0, p.v) / maxD;
-        i ? c.lineTo(x(p.t), yy) : c.moveTo(x(p.t), yy);
-      });
-      c.stroke(); c.setLineDash([]); c.lineWidth = 1;
-      // Label: sound and starting ratio
-      c.fillStyle = themeColor(muted ? '--mid' : '--fg');
-      c.fillText(`${L.sound} · ${(1 + L.drift[0].v).toFixed(3)}`, x(L.start) + 4 * dpr, y0 + 10 * dpr);
-    }
-  });
-
-  // Spread (across groups): dotted curve + labels in the axis band
-  const maxS = Math.max(1e-6, ...comp.spread.map(p => p.v));
-  if (comp.spread.some(p => p.v > 0)) {
-    c.strokeStyle = themeColor('--cp'); c.lineWidth = 1 * dpr; c.setLineDash([1 * dpr, 2 * dpr]);
-    c.beginPath();
-    for (let i = 0; i <= 200; i++) {
-      const t = end * i / 200, yy = top - 1 * dpr - 5 * dpr * valueAt(comp.spread, t) / maxS;
-      i ? c.lineTo(x(t), yy) : c.moveTo(x(t), yy);
-    }
-    c.stroke(); c.setLineDash([]); c.lineWidth = 1;
-    c.fillStyle = themeColor('--cp');
-    let prev = null;
-    for (const p of comp.spread) {
-      if (p.v === prev) continue;
-      prev = p.v;
-      if (p.t > 0 || p.v > 0) c.fillText(`spread ${(1 + p.v).toFixed(3)}`, x(p.t) + 2 * dpr, top + laneH * G - 8 * dpr);
-    }
-  }
-
-  // Overrides: band along the top
-  S.overrides.forEach((o, i) => {
-    if (o.d === null) return;
-    const b = i + 1 < S.overrides.length ? S.overrides[i + 1].t : (S.playing ? Math.min(scoreNow(), end) : o.t);
-    c.fillStyle = themeColor('--c2');
-    c.fillRect(x(o.t), top - 4 * dpr, Math.max(2, x(b) - x(o.t)), 3 * dpr);
-  });
-
-  // Playhead, or the "start from" marker when stopped
   const from = parseTime(document.getElementById('fromCtrl').value || '0') || 0;
-  const tHead = S.playing && S.mode === 'score' ? scoreNow() : from;
-  if (tHead >= 0 && tHead <= end) {
-    c.strokeStyle = themeColor('--cp'); c.lineWidth = 2 * dpr;
-    c.beginPath(); c.moveTo(x(tHead), top - 6 * dpr); c.lineTo(x(tHead), H); c.stroke();
-  }
-  canvas._x2t = px => (px * dpr - left) / (W - left - 6 * dpr) * end;
+  const playing = S.playing && S.mode === 'score';
+  drawScoreTimeline(document.getElementById('timeline'), comp, {
+    overrides: S.overrides, now: playing ? scoreNow() : null, head: playing ? scoreNow() : from,
+    muted: S.muted || [], duration: n => durations[scoreURL(n)] || null,
+  });
 }
 
 // The column of group letters (CSS px), same layout as drawTimeline()
@@ -571,7 +501,7 @@ function renderLoop() {
     renderStatus();
   } else {
     const canvas = document.getElementById('ring');
-    const now = localNow(), dur = durations[soundId(S.sound)];
+    const now = localNow(), dur = durations[soundURL(S.sound)];
     let hands = [];
     if (S.playing && dur && now >= S.T0) {
       const vs = [...new Set([1, ...[...roster.values()].filter(awake).map(p => p.voice)])].sort((a, b) => a - b);
@@ -614,8 +544,7 @@ document.getElementById('qr').addEventListener('click', ev => {
 });
 qrOverlay.addEventListener('click', () => qrOverlay.close());
 
-document.getElementById('scoreSel').innerHTML =
-  SCORES.map((s, i) => `<option value="${i}">${s.title || 'Score ' + (i + 1)}</option>`).join('');
+document.getElementById('linkCtrl').addEventListener('keydown', ev => { if (ev.key === 'Enter') loadLink(); });
 document.getElementById('timeline').addEventListener('click', timelineClick);
 document.getElementById('timeline').addEventListener('mousemove', ev => {
   ev.currentTarget.style.cursor = groupAtLetter(ev) ? 'pointer' : '';
@@ -636,5 +565,5 @@ document.getElementById('themeBtn').textContent =
 refreshUI();
 renderRoster();
 setInterval(renderRoster, 1000);
-loadDurations([...LOOP_SOUNDS, ...comp.sounds]);
+loadDurations([...LOOP_SOUNDS.map(n => soundURL(n)), ...comp.sounds.map(scoreURL)]);
 requestAnimationFrame(renderLoop);

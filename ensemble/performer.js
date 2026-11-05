@@ -86,20 +86,30 @@ function ctxTimeFor(tShared) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // SOUNDS
 // ═══════════════════════════════════════════════════════════════════════════════
-const buffers = new Map(); // sound id → Promise<AudioBuffer>
-const ready = new Set();
+// Buffers are keyed by URL: Free mode and the scores in scores.js use the
+// built-in sounds, a piece loaded from a link its own (from its folder, which
+// may be a student's repo), and the same id can mean different files.
+const buffers = new Map(); // url → Promise<AudioBuffer>
+const ready = new Set();   // urls decoded
 
-function getBuffer(n) {
-  n = soundId(n);
-  if (!buffers.has(n)) {
-    buffers.set(n, fetch(soundURL(n))
+function getBufferURL(url) {
+  if (!buffers.has(url)) {
+    buffers.set(url, fetch(url)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
       .then(d => ctx.decodeAudioData(d))
-      .then(b => { decoded.set(n, b); ready.add(n); sendPresence(); return b; })
-      .catch(e => { buffers.delete(n); throw e; }));
+      .then(b => { decoded.set(url, b); ready.add(url); sendPresence(); return b; })
+      .catch(e => { buffers.delete(url); throw e; }));
   }
-  return buffers.get(n);
+  return buffers.get(url);
 }
+
+// Free mode: a built-in sound
+const getBuffer = n => getBufferURL(soundURL(n));
+
+// Score mode: the URL of one of the score's sounds (S.source is the folder of
+// a piece loaded from a link; null for the scores in scores.js)
+const scoreURL = (S, n) => soundURL(n, S.score, S.source);
+const scoreURLs = S => compiledFor(S).sounds.map(n => scoreURL(S, n));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLAYBACK
@@ -185,6 +195,8 @@ function compiledFor(S) {
 function myAssign(S) { return (S.assign && S.assign[myId]) || null; }
 function isMuted(S) { const a = myAssign(S); return !!(a && S.muted && S.muted.includes(a[0])); }
 
+let missingMine = []; // URLs of this phone's sounds that couldn't be loaded
+
 async function applyScore(S) {
   const comp = compiledFor(S);
   const a = myAssign(S);
@@ -193,9 +205,12 @@ async function applyScore(S) {
   const mine = comp.layers.filter(L => L.group === group);
   scoreBus.gain.setTargetAtTime(isMuted(S) ? 0 : 1, ctx.currentTime, 0.05);
 
-  try { await Promise.all([...new Set(mine.map(L => L.sound))].map(getBuffer)); }
-  catch (e) { setStatus('COULD NOT LOAD SOUNDS'); return; }
+  // Play whatever loaded: a missing file (a typo in the score, or not pushed
+  // to the repo yet) silences only its own sound, and shows in the status
+  const urls = [...new Set(mine.map(L => scoreURL(S, L.sound)))];
+  const got = await Promise.allSettled(urls.map(getBufferURL));
   if (state !== S) return;
+  missingMine = urls.filter((u, i) => got[i].status === 'rejected');
 
   const key = [S.epoch, group, rank, JSON.stringify(S.overrides || [])].join('|');
   if (run && run.key === key) { run.S = S; return; }
@@ -224,58 +239,11 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
   }
   scheduleChain(chain, st, at, c);
 
-  const nodes = [];
-  for (const L of comp.layers) {
-    if (L.group !== group || L.stop <= st) continue;
-    const buffer = bufferNow(L.sound);
-    if (!buffer) continue;
-    const drift = effectiveDrift(L, S.overrides);
-    const t0 = Math.max(st, L.start);           // when this node starts sounding
-    if (layerDone(L, drift, rank, t0, buffer.duration, comp.spread)) continue; // one-shot already over
-    const c0 = t0 === st ? at : c(t0);
-
-    const src = ctx.createBufferSource(), gain = ctx.createGain();
-    src.buffer = buffer;
-    src.loop = L.loop !== false;
-    src.connect(gain).connect(chain.input);
-
-    // Drift (inside the group) + spread (across groups) → playback rate,
-    // following the curves exactly (steps and ramps)
-    const rc = rateCurve(L, drift, rank, comp.spread);
-    const rate = v => 1 + v;
-    src.playbackRate.setValueAtTime(rate(valueAt(rc, t0)), c0);
-    scheduleCurve(src.playbackRate, rc.filter(p => p.t > t0), c, rate);
-
-    // Gain envelope (with a short fade-in when re-seating mid-sound)
-    const g0 = valueAt(L.gain, t0);
-    const midSound = smooth && t0 > L.start;
-    gain.gain.setValueAtTime(midSound ? 0 : g0, c0);
-    if (midSound) gain.gain.linearRampToValueAtTime(valueAt(L.gain, t0 + fade), c0 + fade);
-    scheduleCurve(gain.gain, L.gain.filter(p => p.t > t0 + (midSound ? fade : 0)), c, v => v);
-
-    // One-shot fadeOut: a second gain stage that fades over the end of the file
-    const tail = tailCurve(L, L.loop === false ? fileEndTime(L, drift, rank, buffer.duration, comp.spread) : 0);
-    if (tail) {
-      const tg = ctx.createGain();
-      gain.disconnect(); gain.connect(tg).connect(chain.input);
-      tg.gain.setValueAtTime(valueAt(tail, t0), c0);
-      scheduleCurve(tg.gain, tail.filter(p => p.t > t0), c, v => v);
-    }
-
-    src.start(c0, layerPos(L, drift, rank, t0, buffer.duration, comp.spread));
-    if (isFinite(L.stop)) src.stop(c(L.stop) + 0.05);
-    nodes.push({ src, gain, L, drift, buffer });
-  }
+  const nodes = scheduleLayers(ctx, comp, {
+    group, rank, st, at, smooth, fade, overrides: S.overrides,
+    bufferFor: L => bufferNow(scoreURL(S, L.sound)), destination: chain.input,
+  });
   run = { key, epoch: S.epoch, nodes, seatK: at - ts / 1000, S, comp, group, rank, chain, chainKey };
-}
-
-function scheduleCurve(param, pts, c, map) {
-  let prevT = null;
-  for (const p of pts) {
-    if (p.t === prevT) param.setValueAtTime(map(p.v), c(p.t));
-    else param.linearRampToValueAtTime(map(p.v), c(p.t));
-    prevT = p.t;
-  }
 }
 
 function fadeOutNodes(nodes, at, fade) {
@@ -300,7 +268,7 @@ function stopScore(tShared) {
 
 // Decoded buffers, synchronously (applyScore awaited them already)
 const decoded = new Map();
-function bufferNow(n) { return decoded.get(n) || null; }
+function bufferNow(url) { return (url && decoded.get(url)) || null; }
 
 function stopAt(tShared) {
   if (!cur) return;
@@ -340,8 +308,8 @@ function sendPresence() {
   client.publish(T.presence, JSON.stringify({
     id: myId, voice, fresh, rtt: minRtt, jitter,
     lat: ctx ? ((ctx.outputLatency || ctx.baseLatency || 0) * 1000) : null,
-    ready: state && state.mode === 'score' ? compiledFor(state).sounds.every(n => ready.has(n))
-         : state ? ready.has(soundId(state.sound)) : ready.size > 0,
+    ready: state && state.mode === 'score' ? scoreURLs(state).every(u => ready.has(u))
+         : state ? ready.has(soundURL(state.sound)) : ready.size > 0,
     assign: state ? myAssign(state) : null,
   }));
 }
@@ -367,8 +335,8 @@ function connect() {
       if (m.v !== 1) return;
       state = m;
       // Start downloading what this state needs: the whole score, or the loop
-      const need = m.mode === 'score' ? compiledFor(m).sounds : [m.sound];
-      need.forEach(n => getBuffer(n).catch(() => {}));
+      const need = m.mode === 'score' ? scoreURLs(m) : [soundURL(m.sound)];
+      need.forEach(u => getBufferURL(u).catch(() => {}));
       return applyState();
     }
     if (topic === T.assign && m.map && m.map[myId]) { fresh = false; setVoice(m.map[myId]); }
@@ -553,6 +521,7 @@ function renderStatus() {
     const st = (sharedNow() - state.T0) / 1000, comp = compiledFor(state);
     txt = ctx.state !== 'running' ? 'AUDIO BLOCKED — TAP “TEST SOUND”'
         : st < 0 ? 'COUNT-IN…' : st > comp.end ? 'END' : isMuted(state) ? 'MUTED' : 'PLAYING';
+    if (missingMine.length) txt += ` · COULD NOT LOAD ${missingMine.map(u => decodeURI(u.split('/').pop())).join(', ')}`;
   }
   else if (!cur) txt = 'LOADING SOUND…';
   else if (ctx.state !== 'running') txt = 'AUDIO BLOCKED — TAP “TEST SOUND”';

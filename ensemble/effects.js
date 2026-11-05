@@ -133,7 +133,7 @@ function scheduleChain(chain, st, at, c) {
       for (const { param, map } of targets) {
         param.cancelScheduledValues(at);
         param.setValueAtTime(map(valueAt(pts, st)), at);
-        scheduleCurve(param, pts.filter(p => p.t > st), c, map); // performer.js
+        scheduleCurve(param, pts.filter(p => p.t > st), c, map); // playback.js
       }
     }
   }
