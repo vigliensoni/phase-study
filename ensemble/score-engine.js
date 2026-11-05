@@ -125,6 +125,101 @@ function soundURL(id) {
   return SOUND_DIR + (/\.[a-z0-9]+$/i.test(id) ? id : id + '.wav');
 }
 
+// ── Effects ───────────────────────────────────────────────────────────────────
+// Each group can have a chain of effects ("effects": { "B": [ … ] }); every
+// sound the group plays goes through it. `settings` can change during the
+// piece with a "set" event; `fixed` ones are set once. [default, min, max]
+const FILTER = {
+  settings: { frequency: [1000, 20, 20000], q: [1, 0.1, 30] },
+  // With "lfo": { rate, min, max } the cutoff sweeps between min and max,
+  // `rate` times a second, and `rate` replaces `frequency` as a setting.
+  lfo: { rate: [0.2, 0.01, 20], min: [200, 20, 20000], max: [2000, 20, 20000] },
+};
+const EFFECT_TYPES = {
+  lowpass:  FILTER,
+  highpass: FILTER,
+  bandpass: FILTER,
+  reverb: { settings: { mix: [0.3, 0, 1] }, fixed: { decay: [4, 0.1, 20], preDelay: [0.01, 0, 1] } },
+  delay:  { settings: { time: [0.25, 0.01, 5], feedback: [0.4, 0, 0.95], mix: [0.3, 0, 1] } },
+  pan:    { settings: { pan: [0, -1, 1] } },
+};
+
+// A number from the score, kept inside [min, max] (with a note if it wasn't)
+function effectNumber(x, [def, min, max], where, errors) {
+  if (x === undefined) return def;
+  const v = +x;
+  if (!isFinite(v)) { errors.push(`${where}: "${x}" is not a number`); return def; }
+  if (v < min || v > max) {
+    errors.push(`${where}: ${v} is outside ${min}–${max}`);
+    return Math.min(max, Math.max(min, v));
+  }
+  return v;
+}
+
+// score.effects → { group: [{ id, type, fixed, lfo, curves: { setting: [{t, v}] } }] },
+// then every "set" event (already sorted by time) becomes a step or glide on a curve.
+function compileEffects(score, groups, events, errors) {
+  const out = {};
+  groups.forEach(g => { out[g] = []; });
+  const spec = (score && score.effects) || {};
+  if (typeof spec !== 'object' || Array.isArray(spec)) {
+    errors.push('"effects" should be { "A": [ … ], "BC": [ … ] }');
+    return out;
+  }
+
+  for (const [key, list] of Object.entries(spec)) {
+    const gs = key === 'all' || key === '*' ? groups : key.split('');
+    const bad = gs.filter(g => !groups.includes(g));
+    if (bad.length) errors.push(`effects "${key}": unknown group ${bad.join(', ')}`);
+    if (!Array.isArray(list)) { errors.push(`effects "${key}" should be a list`); continue; }
+
+    for (const g of gs.filter(x => groups.includes(x))) {
+      for (const [n, fx] of list.entries()) {
+        const type = fx && fx.type, def = EFFECT_TYPES[type];
+        const where = `effects ${g} #${n + 1}`;
+        if (!def) { errors.push(`${where}: unknown type "${type}" (use ${Object.keys(EFFECT_TYPES).join(', ')})`); continue; }
+        const id = String(fx.id || type);
+        if (out[g].some(e => e.id === id)) { errors.push(`${where}: two effects called "${id}" in ${g}; give one an "id"`); continue; }
+
+        const fixed = {};
+        for (const [k, r] of Object.entries(def.fixed || {})) fixed[k] = effectNumber(fx[k], r, `${where} ${k}`, errors);
+        let lfo = null;
+        const curves = {};
+        if (def.lfo && fx.lfo) {
+          lfo = {};
+          for (const [k, r] of Object.entries(def.lfo)) lfo[k] = effectNumber(fx.lfo[k], r, `${where} lfo.${k}`, errors);
+          curves.rate = [{ t: 0, v: lfo.rate }];
+        }
+        for (const [k, r] of Object.entries(def.settings)) {
+          if (lfo && k === 'frequency') continue; // the LFO owns the cutoff
+          curves[k] = [{ t: 0, v: effectNumber(fx[k], r, `${where} ${k}`, errors) }];
+        }
+        out[g].push({ id, type, fixed, lfo, curves });
+      }
+    }
+  }
+
+  // "set": "id.setting", "to": value, optional "glide" (seconds), on those groups
+  for (const e of events) {
+    if (e.set === undefined) continue;
+    const [id, setting] = String(e.set).split('.');
+    const gs = e.groups === undefined || e.groups === 'all' || e.groups === '*' ? groups
+      : (Array.isArray(e.groups) ? e.groups.map(String) : String(e.groups).split('')).filter(g => groups.includes(g));
+    let found = false;
+    for (const g of gs) {
+      const fx = out[g].find(x => x.id === id);
+      if (!fx || !fx.curves[setting]) continue;
+      found = true;
+      const def = EFFECT_TYPES[fx.type];
+      const range = setting === 'rate' ? def.lfo.rate : def.settings[setting];
+      const v = effectNumber(e.to, range, `event ${e.i + 1} ${e.set}`, errors);
+      fx.curves[setting] = rampTo(fx.curves[setting], e.t, v, Math.max(0, +(e.glide ?? 0)));
+    }
+    if (!found) errors.push(`event ${e.i + 1}: no group here has an effect setting "${e.set}"`);
+  }
+  return out;
+}
+
 // ── Compile ───────────────────────────────────────────────────────────────────
 function compileScore(score) {
   const errors = [];
@@ -231,12 +326,14 @@ function compileScore(score) {
     }
   }
 
+  const effects = compileEffects(score, groups, events, errors);
+
   const lastT = Math.max(0, ...layers.map(L => isFinite(L.stop) ? L.stop : L.start),
                             ...events.map(e => e.t + (+e.fade || 0) + (+e.glide || 0)));
   const end = isFinite(parseTime(score && score.end)) ? parseTime(score.end) : lastT;
 
   const sounds = [...new Set(layers.map(L => L.sound))]; // what phones need to download
-  return { title: (score && score.title) || 'Untitled', groups, layers, sounds, spread, end, errors };
+  return { title: (score && score.title) || 'Untitled', groups, layers, sounds, spread, effects, end, errors };
 }
 
 // ── Live override (the conductor's slider) ────────────────────────────────────

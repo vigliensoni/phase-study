@@ -460,6 +460,13 @@ function drawTimeline() {
     const muted = (S.muted || []).includes(g);
     c.fillStyle = muted ? themeColor('--dim') : groupColor(g, comp.groups);
     c.fillText(g, 8 * dpr, (y0 + y1) / 2);
+    // The group's effect chain, at the right end of its lane
+    const fxNames = (comp.effects[g] || []).map(fx => fx.id).join(' → ');
+    if (fxNames) {
+      c.textAlign = 'right'; c.fillStyle = themeColor('--mid');
+      c.fillText(fxNames, W - 8 * dpr, y0 + 10 * dpr);
+      c.textAlign = 'left';
+    }
     c.strokeStyle = themeColor('--dim');
     c.beginPath(); c.moveTo(left, y1); c.lineTo(W, y1); c.stroke();
 
