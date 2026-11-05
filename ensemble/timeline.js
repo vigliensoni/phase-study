@@ -75,7 +75,11 @@ function drawScoreTimeline(canvas, comp, { overrides = [], now = null, head = nu
     c.strokeStyle = themeColor('--dim');
     c.beginPath(); c.moveTo(left, y1); c.lineTo(W, y1); c.stroke();
 
-    for (const L of comp.layers.filter(L => L.group === g)) {
+    // Labels go in rows: a sound starting while another is still playing (or
+    // its label still runs on) gets the next row down, so labels never overlap
+    const rowH = 12 * dpr, maxRows = Math.max(1, Math.floor((laneH - 4 * dpr) / rowH));
+    const rows = [], labels = [];
+    for (const L of comp.layers.filter(L => L.group === g).sort((a, b) => a.start - b.start)) {
       // A one-shot ends with its file (shown at normal speed; drift shifts it a little)
       const dur = L.loop === false ? duration(L.sound) : null;
       const fileEnd = dur ? L.start + dur : Infinity;
@@ -100,10 +104,17 @@ function drawScoreTimeline(canvas, comp, { overrides = [], now = null, head = nu
         i ? c.lineTo(x(p.t), yy) : c.moveTo(x(p.t), yy);
       });
       c.stroke(); c.setLineDash([]); c.lineWidth = 1;
-      // Label: sound and starting ratio
-      c.fillStyle = themeColor(off ? '--mid' : '--fg');
-      c.fillText(`${L.sound} · ${(1 + L.drift[0].v).toFixed(3)}`, x(L.start) + 4 * dpr, y0 + 10 * dpr);
+      // Label: sound and starting ratio, in the first free row (if the lane
+      // runs out of rows, the one that frees up soonest)
+      const text = `${L.sound} · ${(1 + L.drift[0].v).toFixed(3)}`, lx = x(L.start) + 4 * dpr;
+      let row = rows.findIndex(busyTo => busyTo <= lx);
+      if (row < 0) row = rows.length < maxRows ? rows.length : rows.indexOf(Math.min(...rows));
+      rows[row] = Math.max(lx + c.measureText(text).width + 6 * dpr, x(tEnd));
+      labels.push({ text, lx, y: y0 + 10 * dpr + row * rowH });
     }
+    // Drawn after the lane's shapes, so no later shape covers them
+    c.fillStyle = themeColor(off ? '--mid' : '--fg');
+    for (const l of labels) c.fillText(l.text, l.lx, l.y);
   });
 
   // Spread (across groups): dotted curve + labels in the axis band
