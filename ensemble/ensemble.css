@@ -184,6 +184,9 @@ body.score-mode .cond-grid { grid-template-columns: minmax(0, 1fr) 300px; }
   background: var(--well); color: var(--mid); border: 1px solid var(--dim);
 }
 .editor .ed-toggle.on { color: var(--on-accent); background: var(--fg); border-color: var(--fg); }
+.editor .ed-switch { min-width: 3.2rem; }
+.editor .ed-actions { display: flex; gap: 0.6rem; margin-left: auto; }
+.editor .ed-row > .score-sel { font-size: 0.75rem; }
 
 .editor .ed-preview { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: flex-end; margin: 0.8rem 0 0.4rem; }
 .editor .ed-preview .status { margin: 0 0 0.45rem; }

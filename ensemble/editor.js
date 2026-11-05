@@ -166,6 +166,12 @@ function numberInput(value, placeholder, onValue, attrs = {}) {
 
 // A caption over an input. Only real inputs get a <label>: clicking a label
 // presses the first button inside it, which would toggle a group by accident.
+// An on/off button in the style of the group toggles (in place of a checkbox)
+function toggle(text, on, onChange) {
+  return el('button', { class: 'ed-toggle ed-switch' + (on ? ' on' : ''), textContent: text, type: 'button',
+    onclick: () => onChange(!on) });
+}
+
 function field(label, input) {
   const tag = ['INPUT', 'SELECT', 'TEXTAREA'].includes(input.tagName) ? 'label' : 'div';
   return el(tag, { class: 'ed-field' }, el('span', { class: 'cn', textContent: label }), input);
@@ -236,9 +242,8 @@ function effectRow(g, list, fx, i) {
     field(prefix + k, numberInput(obj[k], d, v => { obj[k] = v; }, { min, max })));
   const fields = [];
   if (def === FILTER) {
-    fields.push(el('label', { class: 'ed-field' }, el('span', { class: 'cn', textContent: 'LFO' }),
-      el('input', { type: 'checkbox', checked: !!fx.lfo,
-        onchange: e => { if (e.target.checked) { fx.lfo = {}; delete fx.frequency; } else delete fx.lfo; render(); } })));
+    fields.push(field('LFO', toggle(fx.lfo ? 'on' : 'off', !!fx.lfo,
+      on => { if (on) { fx.lfo = {}; delete fx.frequency; } else delete fx.lfo; render(); })));
     if (fx.lfo) fields.push(...settingFields(FILTER.lfo, fx.lfo, 'lfo '), ...settingFields({ q: FILTER.settings.q }, fx));
     else fields.push(...settingFields(FILTER.settings, fx));
   } else {
@@ -331,8 +336,8 @@ function eventField(e, [key, kind, label]) {
     ...options.map(o => el('option', { value: o, textContent: o, selected: String(e[key]) === o })));
   if (kind === 'num') return field(label, numberInput(e[key], FIELD_HINT[key], v => { e[key] = v; }));
   // "loop": false plays the file once; looping is the default, so it's left out then
-  if (kind === 'once') return field(label, el('input', { type: 'checkbox', checked: e.loop === false,
-    onchange: ev => { if (ev.target.checked) e.loop = false; else { delete e.loop; delete e.fadeOut; } renderEvents(); changed(); } }));
+  if (kind === 'once') return field(label, toggle(e.loop === false ? 'yes' : 'no', e.loop === false,
+    on => { if (on) e.loop = false; else { delete e.loop; delete e.fadeOut; } renderEvents(); changed(); }));
   if (kind === 'oneShotNum') return e.loop === false ? field(label, numberInput(e[key], FIELD_HINT[key], v => { e[key] = v; })) : null;
   if (kind === 'sound') return field(label, select(soundNames(), soundNames().length ? undefined : '(add a sound first)'));
   if (kind === 'soundAll') return field(label, select(['all', ...soundNames()]));
@@ -363,11 +368,12 @@ function renderEvents() {
           renderEvents(); changed();
         } }, ...Object.keys(ACTIONS).map(a => el('option', { value: a, textContent: a, selected: a === action })))),
       ...spec.fields.map(f => eventField(e, f)),
-      el('span', { class: 'ed-grow' }),
-      el('button', { class: 'btn btn-reset ed-btn', textContent: 'Copy', title: 'Duplicate this event',
-        onclick: () => { doc.events.splice(i + 1, 0, JSON.parse(JSON.stringify(e))); renderEvents(); changed(); } }),
-      el('button', { class: 'btn btn-reset ed-btn', textContent: 'Remove',
-        onclick: () => { doc.events.splice(i, 1); renderEvents(); changed(); } }));
+      // Copy and Remove stay together, at the right end of the row
+      el('span', { class: 'ed-actions' },
+        el('button', { class: 'btn btn-reset ed-btn', textContent: 'Copy', title: 'Duplicate this event',
+          onclick: () => { doc.events.splice(i + 1, 0, JSON.parse(JSON.stringify(e))); renderEvents(); changed(); } }),
+        el('button', { class: 'btn btn-reset ed-btn', textContent: 'Remove',
+          onclick: () => { doc.events.splice(i, 1); renderEvents(); changed(); } })));
   }));
 }
 
