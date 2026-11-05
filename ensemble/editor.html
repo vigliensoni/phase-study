@@ -26,24 +26,6 @@
 
 <div class="wrap">
 
-  <!-- Timeline + preview -->
-  <section class="timeline-sec">
-    <div class="ctrl-title">Score · <span class="hint">click the timeline to choose where the preview starts</span></div>
-    <canvas id="timeline"></canvas>
-    <ul class="score-err ed-errors" id="errors"></ul>
-
-    <div class="ed-preview">
-      <div class="ed-field"><span class="cn">Hear groups</span><span id="previewGroups" class="ed-letters"></span></div>
-      <label class="ed-field"><span class="cn">Phones per group</span>
-        <input type="number" id="previewPhones" min="1" max="8" value="2"></label>
-      <label class="ed-field"><span class="cn">Start from</span>
-        <input type="text" id="previewFrom" class="from-ctrl" value="0:00" inputmode="numeric"></label>
-      <button class="btn btn-play ed-btn" id="previewPlay" onclick="previewToggle()">▶ &nbsp;Preview</button>
-      <span class="status">STATUS: <span id="previewStatus">STOPPED</span></span>
-    </div>
-    <p class="hint">Plays the ticked groups here, as that many phones each, with their drift and effects. Press Preview again after editing to hear the change.</p>
-  </section>
-
   <!-- Open -->
   <section class="ed-sec">
     <div class="ctrl-title">Open</div>
@@ -101,6 +83,24 @@
     <button class="btn btn-reset ed-btn" onclick="addEvent()">+ Add event</button>
     <button class="btn btn-reset ed-btn" onclick="sortEvents()">Sort by time</button>
     <p class="hint"><em>Play</em> starts a sound in the chosen groups (<em>Play once</em> plays the file once instead of looping; <em>Fade out end</em> fades over its last seconds), <em>stop</em> fades it out. <em>Ratio</em> drifts the phones of a group apart; <em>spread</em> drifts the groups apart (the whole piece). <em>Level</em> changes loudness; <em>set</em> changes an effect setting. Fades and glides are in seconds.</p>
+  </section>
+
+  <!-- Timeline + preview -->
+  <section class="timeline-sec ed-sec">
+    <div class="ctrl-title">Score · <span class="hint">click the timeline to choose where the preview starts</span></div>
+    <canvas id="timeline"></canvas>
+    <ul class="score-err ed-errors" id="errors"></ul>
+
+    <div class="ed-preview">
+      <div class="ed-field"><span class="cn">Hear groups</span><span id="previewGroups" class="ed-letters"></span></div>
+      <label class="ed-field"><span class="cn">Phones per group</span>
+        <input type="number" id="previewPhones" min="1" max="8" value="2"></label>
+      <label class="ed-field"><span class="cn">Start from</span>
+        <input type="text" id="previewFrom" class="from-ctrl" value="0:00" inputmode="numeric"></label>
+      <button class="btn btn-play ed-btn" id="previewPlay" onclick="previewToggle()">▶ &nbsp;Preview</button>
+      <span class="status">STATUS: <span id="previewStatus">STOPPED</span></span>
+    </div>
+    <p class="hint">Plays the ticked groups here, as that many phones each, with their drift and effects. Press Preview again after editing to hear the change.</p>
   </section>
 
   <!-- Save -->

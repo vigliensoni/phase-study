@@ -207,14 +207,20 @@ function renameSound(s, name) {
 function renderSounds() {
   $('sounds').replaceChildren(...doc.sounds.map(s => {
     const where = s.file ? `${s.path} · chosen here` : s.url ? `${s.path} · in the piece's folder` : `${s.path} · missing: choose a file`;
+    // The name box fits its name (within limits), so long names stay readable
+    const fit = input => { input.style.width = `calc(${Math.min(Math.max(input.value.length, 6), 28)}ch + 0.9rem)`; };
+    // One compact line per sound: its name (editable), its file, replace, remove
+    const name = el('input', { type: 'text', value: s.name, class: 'ed-sound-name', title: 'Name, used by the events', placeholder: 'name',
+      oninput: e => { fit(e.target); renameSound(s, e.target.value.trim()); renderEvents(); changed(); } });
+    fit(name);
     return el('div', { class: 'ed-sound' },
-      field('Name', el('input', { type: 'text', value: s.name, class: 'link-ctrl',
-        oninput: e => { renameSound(s, e.target.value.trim()); renderEvents(); changed(); } })),
-      el('span', { class: 'hint ed-grow' + (s.file || s.url ? '' : ' ed-bad'), textContent: where }),
-      el('label', { class: 'btn btn-reset ed-btn ed-file', textContent: 'Replace…' },
+      name,
+      el('span', { class: 'ed-sound-path' + (s.file || s.url ? '' : ' ed-bad'), title: where,
+        textContent: s.file || s.url ? s.path : `${s.path} · missing` }),
+      el('label', { class: 'ed-mini', textContent: 'Replace…', title: 'Choose another file for this sound' },
         el('input', { type: 'file', accept: 'audio/*,.aif,.aiff', hidden: true,
           onchange: e => { const f = e.target.files[0]; if (f) { s.file = f; s.url = null; s.path = 'audio/' + f.name; render(); } } })),
-      el('button', { class: 'btn btn-reset ed-btn', textContent: 'Remove',
+      el('button', { class: 'ed-mini', textContent: '×', title: 'Remove this sound', type: 'button',
         onclick: () => { doc.sounds.splice(doc.sounds.indexOf(s), 1); render(); } }));
   }));
 }

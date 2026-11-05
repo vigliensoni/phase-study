@@ -169,10 +169,22 @@ body.score-mode .cond-grid { grid-template-columns: minmax(0, 1fr) 300px; }
 .editor .ed-bad { color: var(--c2); }
 .editor .ed-num { font-size: 0.7rem; color: var(--mid); min-width: 1.4rem; align-self: center; text-align: right; }
 
-.editor .ed-sound, .editor .ed-event, .editor .ed-effect {
+.editor .ed-event, .editor .ed-effect {
   display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end;
   padding: 0.6rem 0; border-bottom: 1px solid var(--dim);
 }
+/* Sounds: one compact line each, in columns */
+.editor #sounds { display: grid; column-gap: 1.2rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  margin-bottom: 0.5rem; }
+.editor .ed-sound { display: flex; gap: 0.4rem; align-items: center; min-width: 0;
+  padding: 0.2rem 0; border-bottom: 1px solid var(--dim); font-size: 0.7rem; }
+.editor .ed-sound-name { font: inherit; font-size: 0.75rem; flex: none; max-width: 60%; padding: 0.2rem 0.35rem;
+  background: var(--well); color: var(--fg); border: 1px solid var(--dim); }
+.editor .ed-sound-path { flex: 1; min-width: 0; color: var(--mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.editor .ed-sound-path.ed-bad { color: var(--c2); }
+.editor .ed-mini { font: inherit; font-size: 0.65rem; padding: 0.15rem 0.4rem; flex: none; cursor: pointer;
+  background: none; color: var(--mid); border: 1px solid var(--dim); }
+.editor .ed-mini:hover { color: var(--fg); border-color: var(--fg); }
 .editor .ed-groups { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .editor .ed-group { border: 1px solid var(--dim); padding: 0.6rem 0.8rem 0.8rem; }
 .editor .ed-group-hd { display: flex; gap: 0.8rem; align-items: baseline; }
