@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Score editor</title>
+<script>
+  try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+</script>
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="ensemble.css">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body class="editor">
+
+<header>
+  <div class="title-block">
+    <h1>Score editor</h1>
+  </div>
+  <div class="meta">
+    <a class="pill" href="conductor.html">Conductor →</a>
+    <button class="theme-btn" id="themeBtn" onclick="themeChanged()">◐ &nbsp;Dark</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Open -->
+  <section class="ed-sec">
+    <div class="ctrl-title">Open</div>
+    <div class="link-row">
+      <input type="url" id="openLink" class="link-ctrl" placeholder="Paste a GitHub link to a piece, e.g. github.com/you/your-piece">
+      <button class="btn btn-reset link-btn" onclick="openLink()">Open</button>
+    </div>
+    <div class="ed-row">
+      <label class="btn btn-reset ed-btn ed-file">Open a folder…
+        <input type="file" id="openFolder" webkitdirectory multiple hidden></label>
+      <label class="btn btn-reset ed-btn ed-file">Open a ZIP…
+        <input type="file" id="openZip" accept=".zip,application/zip" hidden></label>
+      <button class="btn btn-reset ed-btn" onclick="newPiece()">New piece</button>
+      <select id="openBuiltIn" class="score-sel"></select>
+    </div>
+    <p class="hint" id="openStatus"></p>
+  </section>
+
+  <!-- Piece -->
+  <section class="ed-sec">
+    <div class="ctrl-title">Piece</div>
+    <div class="ed-row">
+      <label class="ed-field ed-grow"><span class="cn">Title</span>
+        <input type="text" id="title" class="link-ctrl" placeholder="My piece"></label>
+      <label class="ed-field"><span class="cn">Groups</span>
+        <select id="groupCount" class="score-sel"></select></label>
+      <label class="ed-field"><span class="cn">Ends at (optional)</span>
+        <input type="text" id="end" class="from-ctrl" placeholder="m:ss"></label>
+    </div>
+  </section>
+
+  <!-- Sounds -->
+  <section class="ed-sec">
+    <div class="ctrl-title">Sounds</div>
+    <div id="sounds"></div>
+    <label class="btn btn-reset ed-btn ed-file">+ Add audio files…
+      <input type="file" id="addSounds" accept="audio/*,.aif,.aiff" multiple hidden></label>
+    <p class="hint">Events use these names. Prefer <code>.mp3</code> or <code>.ogg</code>, under 100&nbsp;MB each.</p>
+  </section>
+
+  <!-- Effects -->
+  <section class="ed-sec">
+    <div class="ctrl-title">Effects · each group's chain, in order</div>
+    <div id="effects" class="ed-groups"></div>
+  </section>
+
+  <!-- Events -->
+  <section class="ed-sec">
+    <div class="ctrl-title">Events</div>
+    <div id="events"></div>
+    <button class="btn btn-reset ed-btn" onclick="addEvent()">+ Add event</button>
+    <button class="btn btn-reset ed-btn" onclick="sortEvents()">Sort by time</button>
+    <p class="hint"><em>Ratio</em> drifts the phones in a group apart; <em>spread</em> drifts the groups apart. Times in seconds.</p>
+  </section>
+
+  <!-- Timeline + preview -->
+  <section class="timeline-sec ed-sec">
+    <div class="ctrl-title">Preview · <span class="hint">click the timeline to choose where to start</span></div>
+    <canvas id="timeline"></canvas>
+    <ul class="score-err ed-errors" id="errors"></ul>
+
+    <div class="ed-preview">
+      <div class="ed-field"><span class="cn">Hear groups</span><span id="previewGroups" class="ed-letters"></span></div>
+      <label class="ed-field"><span class="cn">Preview phones per group</span>
+        <input type="number" id="previewPhones" min="1" max="8" value="2"></label>
+      <label class="ed-field"><span class="cn">Start from</span>
+        <input type="text" id="previewFrom" class="from-ctrl" value="0:00" inputmode="numeric"></label>
+      <button class="btn btn-play ed-btn" id="previewPlay" onclick="previewToggle()">▶ &nbsp;Preview</button>
+      <span class="status">STATUS: <span id="previewStatus">STOPPED</span></span>
+    </div>
+    <p class="hint">Phones per group is for the preview only: in the room, any number can join, and more phones per group spread the drift wider. Press Preview again after editing to hear the change.</p>
+  </section>
+
+  <!-- Save -->
+  <section class="ed-sec">
+    <div class="ctrl-title">Save</div>
+    <div class="ed-row">
+      <button class="btn btn-play ed-btn" onclick="downloadZip()">⇣ &nbsp;Download ZIP</button>
+      <button class="btn btn-reset ed-btn" onclick="copyJSON()">Copy score.json</button>
+    </div>
+    <p class="hint" id="saveStatus">Upload the ZIP's contents to a public GitHub repo, then paste its link into the conductor.</p>
+    <details class="ed-json"><summary class="cn">score.json</summary><pre id="json"></pre></details>
+  </section>
+</div>
+
+<!-- Load the scripts with a fresh ?v= each time, so the editor never runs a
+     cached copy of old code (some servers let browsers keep files for an hour) -->
+<script>
+  for (const f of ['net.js', 'score-engine.js', 'scores.js', 'pieces.js', 'timeline.js', 'effects.js', 'playback.js', 'editor.js'])
+    document.write('<script src="' + f + '?v=' + Date.now() + '"><\/script>');
+</script>
+</body>
+</html>

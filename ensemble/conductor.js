@@ -1,8 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// CONDUCTOR — owns the shared clock and the state of the piece.
-// Two modes:
-//   Free   one sound, live controls (the original ensemble)
-//   Score  a timed piece from scores.js, played by groups of phones
+// CONDUCTOR — owns the shared clock and the state of the piece: a timed score
+// played by groups of phones, either one of scores.js or a piece loaded from a
+// link (a student's GitHub repo; see pieces.js).
 // The conductor never plays sound itself; open a phone tab too to monitor.
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -24,20 +23,22 @@ const performerURL = (() => {
 
 // ── State of the piece (published retained, so late joiners get it) ──────────
 let S = {
-  v: 1, mode: 'free', epoch: null, playing: false, stopAt: 0,
+  v: 2, epoch: null, playing: false, stopAt: 0, T0: 0,
   standby: false, // every phone shows a black screen (stays awake and connected)
-  // free mode
-  sound: LOOP_SOUNDS[0], T0: 0, tA: 0, phiA: 0, ratio: 1.002, paused: false,
-  // score mode
   scoreIdx: 0, score: SCORES[0], overrides: [], assign: {}, nextSlot: 0,
+  source: null, // folder of a piece loaded from a link (its sounds are there); null for scores.js
+  link: null,   // the link it was loaded from
   muted: [], // groups silenced from the timeline (click a group's letter)
 };
 let adoptedRetained = false; // after a reload, pick up where the room was
-let durations = {};          // sound id → seconds (for the ring display)
-const missing = new Set();   // sound ids whose file couldn't be loaded
+let durations = {};          // sound URL → seconds (one-shots on the timeline)
+const missing = new Set();   // sound URLs whose file couldn't be loaded
 let comp = compileScore(S.score);
 
-const roster = new Map();    // id → { voice, assign, rtt, jitter, lat, ready, first, last, gone }
+// Where the score's sounds are: the built-in folder, or the linked piece's own
+const scoreURL = n => soundURL(n, S.score, S.source);
+
+const roster = new Map();    // id → { assign, rtt, jitter, lat, ready, first, last, gone }
 
 // A phone that stops reporting (screen locked, app switched, tab closed) is
 // kept in the roster as "asleep" so you can see which one to go and wake;
@@ -71,19 +72,16 @@ client.on('message', (topic, buf) => {
   if (topic === T.presence) {
     const prev = roster.get(m.id);
     if (m.gone) { if (prev) prev.gone = true; return; } // broker's last will: connection lost
-    roster.set(m.id, { ...m, gone: false, first: prev ? prev.first : localNow(), last: localNow(),
-                       // the voice to hand back if this phone reloads: its latest real one
-                       given: m.fresh ? prev && prev.given : m.voice });
-    if (!prev && S.mode === 'score') ensureAssigned();
-    if (S.mode !== 'score' && m.fresh) giveVoice(m.id);
+    roster.set(m.id, { ...m, gone: false, first: prev ? prev.first : localNow(), last: localNow() });
+    if (!prev) ensureAssigned();
     return;
   }
   if (topic === T.state && !adoptedRetained) {
     adoptedRetained = true;
-    if (m.v === 1 && m.epoch) {
-      S = { ...S, ...m, mode: m.mode || 'free' };
+    if (m.v === 2 && m.epoch) {
+      S = { ...S, ...m };
       comp = compileScore(S.score);
-      loadDurations(comp.sounds);
+      loadDurations(comp.sounds.map(scoreURL));
       refreshUI();
     }
   }
@@ -96,101 +94,8 @@ function publishState() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MODE
+// PHONES
 // ═══════════════════════════════════════════════════════════════════════════════
-function setMode(mode) {
-  if (S.mode === mode) return;
-  if (S.playing) { S.playing = false; S.stopAt = localNow() + LEAD_CHANGE; }
-  S.mode = mode;
-  if (mode === 'score') rebalance(false);
-  publishState();
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// FREE MODE
-// ═══════════════════════════════════════════════════════════════════════════════
-function launch() {
-  const now = localNow();
-  S.epoch = randomId();
-  S.playing = true;
-  S.paused = false;
-  S.T0 = S.tA = now + LEAD_START;
-  S.phiA = 0;
-  publishState();
-}
-
-function togglePlay() {
-  if (S.playing) {
-    S.playing = false;
-    S.stopAt = localNow() + LEAD_CHANGE;
-    publishState();
-  } else if (S.mode === 'score') {
-    startScore();
-  } else {
-    launch();
-  }
-}
-
-function resync() { if (S.playing && S.mode === 'free') launch(); }
-
-// Changing the drift rate mid-piece: freeze the accumulated phase at the
-// moment the change takes effect, then continue from there with the new rate.
-function changeDrift(mutate) {
-  if (S.playing) {
-    const tc = Math.max(localNow() + LEAD_CHANGE, S.tA);
-    S.phiA = phiAt(S, tc);
-    S.tA = tc;
-  }
-  mutate();
-  publishState();
-}
-
-function togglePhasing() { if (S.playing && S.mode === 'free') changeDrift(() => { S.paused = !S.paused; }); }
-
-let ratioTimer = null, ratioPending = null;
-function updateRatio() {
-  const v = +document.getElementById('ratioCtrl').value;
-  document.getElementById('ratioVal').textContent = v.toFixed(4);
-  ratioPending = v;
-  if (ratioTimer) return; // throttle: at most one message every 150 ms
-  const flush = () => {
-    if (ratioPending === null) { ratioTimer = null; return; }
-    const r = ratioPending; ratioPending = null;
-    if (S.mode === 'score') addOverride(r - 1);
-    else changeDrift(() => { S.ratio = r; });
-    ratioTimer = setTimeout(flush, 150);
-  };
-  flush();
-}
-
-function selectSound(n) {
-  S.sound = soundId(n);
-  if (S.playing) launch(); else publishState();
-}
-
-// Free mode: a phone that just joined gets the lowest voice no other phone has
-// (it keeps asking until it hears back, and always gets the same answer)
-function giveVoice(id) {
-  const p = roster.get(id);
-  if (!p.given) {
-    const used = new Set([...roster.entries()]
-      .filter(([k, q]) => k !== id && awake(q) && (!q.fresh || q.given)).map(([, q]) => q.voice));
-    let v = 1;
-    while (used.has(v)) v++;
-    p.given = v;
-  }
-  p.voice = p.given;
-  client.publish(T.assign, JSON.stringify({ map: { [id]: p.given } }));
-}
-
-function autoAssign() {
-  if (S.mode === 'score') return rebalance(true);
-  const ids = awakeIds();
-  const map = {};
-  ids.forEach((id, i) => { map[id] = i + 1; });
-  client.publish(T.assign, JSON.stringify({ map }));
-}
-
 // ── Level calibration ─────────────────────────────────────────────────────────
 // Every phone plays its test sound in turn, CALIB_GAP apart, in roster order,
 // so the room can hear each one alone and set its volume. One message carries
@@ -228,20 +133,55 @@ function renderCalib() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SCORE MODE
+// THE PIECE
 // ═══════════════════════════════════════════════════════════════════════════════
 const scoreNow = () => (localNow() - S.T0) / 1000;
 
 function selectScore(i) {
-  i = +i;
-  S.scoreIdx = i;
-  S.score = SCORES[i];
+  if (i === 'link') return; // the piece already loaded from a link
+  setScore(SCORES[+i], +i, null, null);
+}
+
+// Make `score` the piece: one of scores.js (idx), or one loaded from `link`,
+// whose sounds are in the folder `source`
+function setScore(score, idx, source, link) {
+  S.scoreIdx = idx;
+  S.score = score;
+  S.source = source;
+  S.link = link;
   S.muted = [];
   document.getElementById('fromCtrl').value = '0:00'; // a new piece starts from the top
   comp = compileScore(S.score);
-  loadDurations(comp.sounds);
+  loadDurations(comp.sounds.map(scoreURL));
   if (S.playing) { S.playing = false; S.stopAt = localNow() + LEAD_CHANGE; }
   rebalance(false); // re-deal every phone into this score's groups
+  publishState();
+}
+
+// Load a piece from a link (a student's GitHub repo, usually): its score.json
+// goes to every phone, and each phone fetches its sounds from that folder.
+let linkBusy = false;
+async function loadLink() {
+  const input = document.getElementById('linkCtrl'), status = document.getElementById('linkStatus');
+  if (linkBusy) return;
+  linkBusy = true;
+  status.textContent = 'Loading…';
+  status.classList.remove('bad');
+  try {
+    const link = input.value.trim();
+    const { base, score } = await loadPiece(link);
+    setScore(score, -1, base, link);
+    status.textContent = `Loaded “${comp.title}” from ${base}`;
+  } catch (e) {
+    status.textContent = e.message;
+    status.classList.add('bad');
+  } finally { linkBusy = false; }
+}
+
+function togglePlay() {
+  if (!S.playing) return startScore();
+  S.playing = false;
+  S.stopAt = localNow() + LEAD_CHANGE;
   publishState();
 }
 
@@ -255,8 +195,23 @@ function startScore() {
 }
 
 // Live drift override on top of the score (d = ratio − 1, null = follow score)
+let ratioTimer = null, ratioPending = null;
+function updateRatio() {
+  const v = +document.getElementById('ratioCtrl').value;
+  document.getElementById('ratioVal').textContent = v.toFixed(4);
+  ratioPending = v;
+  if (ratioTimer) return; // throttle: at most one message every 150 ms
+  const flush = () => {
+    if (ratioPending === null) { ratioTimer = null; return; }
+    addOverride(ratioPending - 1);
+    ratioPending = null;
+    ratioTimer = setTimeout(flush, 150);
+  };
+  flush();
+}
+
 function addOverride(d) {
-  if (!S.playing || S.mode !== 'score') return;
+  if (!S.playing) return;
   const t = Math.max(0, scoreNow() + LEAD_CHANGE / 1000);
   const list = S.overrides.filter(o => o.t < t);
   const last = list[list.length - 1];
@@ -295,19 +250,19 @@ function ensureAssigned() {
   if (changed && !assignTimer) assignTimer = setTimeout(() => { assignTimer = null; publishState(); }, 300);
 }
 
-// ── Durations (for drawing the ring; also finds sounds whose file is missing) ─
+// ── Durations (one-shots on the timeline; also finds missing sound files) ────
 const durCtx = new OfflineAudioContext(1, 1, 44100);
-async function loadDurations(ids) {
-  ids = ids.map(soundId).filter(n => !(n in durations) && !missing.has(n));
-  await Promise.all(ids.map(async n => {
-    durations[n] = null; // loading
+async function loadDurations(urls) {
+  urls = urls.filter(u => !(u in durations) && !missing.has(u));
+  await Promise.all(urls.map(async u => {
+    durations[u] = null; // loading
     try {
-      const r = await fetch(soundURL(n));
+      const r = await fetch(u);
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      durations[n] = (await durCtx.decodeAudioData(await r.arrayBuffer())).duration;
-    } catch (e) { delete durations[n]; missing.add(n); }
+      durations[u] = (await durCtx.decodeAudioData(await r.arrayBuffer())).duration;
+    } catch (e) { delete durations[u]; missing.add(u); }
   }));
-  if (ids.length) refreshUI();
+  if (urls.length) refreshUI();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -320,84 +275,76 @@ function setNet(txt, ok) {
 }
 
 function refreshUI() {
-  const score = S.mode === 'score';
-  document.body.classList.toggle('score-mode', score);
-  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === S.mode));
-
   const play = document.getElementById('btnPlay');
-  play.textContent = S.playing ? '■   Stop' : score ? '▶   Start score' : '▶   Start';
+  play.textContent = S.playing ? '■   Stop' : '▶   Start';
   play.classList.toggle('on', S.playing);
-  const ph = document.getElementById('btnPhase');
-  ph.disabled = !S.playing;
-  ph.textContent = S.paused ? '▶   Resume phasing' : '⏸   Pause phasing';
-  ph.classList.toggle('paused', S.paused);
-  document.getElementById('btnSync').disabled = !S.playing;
   const sb = document.getElementById('standbyBtn');
   sb.textContent = S.standby ? '◼   Standby: on' : '◻   Standby: off';
   sb.classList.toggle('on', !!S.standby);
-  document.querySelectorAll('.sound-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.sound === soundId(S.sound)));
 
-  document.getElementById('scoreSel').value = S.scoreIdx;
+  renderScoreMenu();
+  document.getElementById('editLink').href = 'editor.html?' +
+    (S.source ? 'link=' + encodeURIComponent(S.link || S.source) : 'score=' + S.scoreIdx);
   document.getElementById('scoreCredit').textContent = (S.score && S.score.credit) || '';
   document.getElementById('scoreErr').textContent = [...comp.errors,
-    ...comp.sounds.filter(n => missing.has(n)).map(n => `sound "${n}" not found (${soundURL(n)})`)].join(' · ');
-  document.getElementById('assignBtn').innerHTML = score ? '⇢ &nbsp;Re-deal groups' : '⇢ &nbsp;Number voices 1…N';
-  document.getElementById('driftTitle').textContent = score ? 'Live drift override' : 'Drift — Voice 2 speed';
-  document.getElementById('driftHint').innerHTML = score
-    ? 'Moving the slider overrides every group’s scored drift. “Follow score” hands control back.'
-    : 'Voice k runs at 1&nbsp;+&nbsp;(k−1)·(ratio−1). Start lands 1.5&nbsp;s after you press; other changes 0.4&nbsp;s after.';
+    ...comp.sounds.filter(n => missing.has(scoreURL(n))).map(n => `sound "${n}" not found (${scoreURL(n)})`)].join(' · ');
   document.getElementById('btnFollow').disabled = !overriding();
 
   const ratioCtrl = document.getElementById('ratioCtrl');
   if (document.activeElement !== ratioCtrl && ratioPending === null) {
-    const r = score ? (overriding() ? 1 + S.overrides[S.overrides.length - 1].d : 1) : S.ratio;
+    const r = overriding() ? 1 + S.overrides[S.overrides.length - 1].d : 1;
     ratioCtrl.value = r;
-    document.getElementById('ratioVal').textContent = score && !overriding() ? 'score' : (+r).toFixed(4);
+    document.getElementById('ratioVal').textContent = overriding() ? r.toFixed(4) : 'score';
   }
   renderStatus();
 }
 
+// The scores of scores.js, plus the piece loaded from a link (if that's the one)
+function renderScoreMenu() {
+  const sel = document.getElementById('scoreSel');
+  const opts = SCORES.map((s, i) => [String(i), s.title || 'Score ' + (i + 1)]);
+  if (S.source) opts.push(['link', `Linked: ${comp.title}`]);
+  const html = opts.map(([v, t]) => `<option value="${v}">${escapeHTML(t)}</option>`).join('');
+  if (sel.dataset.html !== html) sel.innerHTML = sel.dataset.html = html;
+  sel.value = S.source ? 'link' : String(S.scoreIdx);
+}
+
+const escapeHTML = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+
 function renderStatus() {
   let txt;
   if (!S.playing) txt = 'STOPPED';
-  else if (S.mode === 'score') {
+  else {
     const st = scoreNow();
     txt = st < 0 ? `COUNT-IN ${Math.ceil(-st)}` : st > comp.end ? 'END'
         : `${fmtTime(st)} / ${fmtTime(comp.end)}${overriding() ? ' · OVERRIDE' : ''}`;
-  } else txt = S.paused ? 'PHASE FROZEN' : 'RUNNING';
+  }
   document.getElementById('statusTxt').textContent = txt;
 }
 
-// Roster rows in display order: by voice (free) or group + phone (score)
+// Roster rows in display order: by group, then phone
 function rosterRows() {
-  const score = S.mode === 'score';
-  const label = (id, p) => {
-    if (!score) return { txt: p.voice, color: voiceColor(p.voice), sort: p.voice * 1000 };
+  const label = id => {
     const a = S.assign[id];
     if (!a) return { txt: '…', color: themeColor('--mid'), sort: 1e9 };
     return { txt: a[0] + a[1], color: groupColor(a[0], comp.groups), sort: comp.groups.indexOf(a[0]) * 1000 + a[1] };
   };
-  return [...roster.entries()].map(([id, p]) => ({ id, p, l: label(id, p) }))
+  return [...roster.entries()].map(([id, p]) => ({ id, p, l: label(id) }))
     .sort((a, b) => a.l.sort - b.l.sort || a.p.first - b.p.first);
 }
 
 function renderRoster() {
   const now = localNow();
   for (const [id, p] of roster) if (now - p.last > FORGET_MS) roster.delete(id);
-  const score = S.mode === 'score';
   const rows = rosterRows();
   const up = rows.filter(r => awake(r.p)), asleep = rows.length - up.length;
-  const labels = rows.map(r => r.l.txt);
-  const dupes = new Set(labels.filter((v, i) => labels.indexOf(v) !== i));
 
   document.getElementById('countTxt').textContent = up.length + (asleep ? ` · ${asleep} asleep` : '');
   document.getElementById('qrBigCount').textContent = `${up.length} ${up.length === 1 ? 'phone' : 'phones'} joined`;
-  document.getElementById('groupCounts').textContent = score
-    ? comp.groups.map(g => `${g} ${up.filter(r => S.assign[r.id] && S.assign[r.id][0] === g).length}`).join(' · ')
-    : '';
+  document.getElementById('groupCounts').textContent =
+    comp.groups.map(g => `${g} ${up.filter(r => S.assign[r.id] && S.assign[r.id][0] === g).length}`).join(' · ');
   document.getElementById('rosterBody').innerHTML = rows.length ? rows.map(({ id, p, l }) => `
-    <tr class="${dupes.has(l.txt) ? 'dupe' : ''} ${awake(p) ? '' : 'asleep'}" data-id="${id}">
+    <tr class="${awake(p) ? '' : 'asleep'}" data-id="${id}">
       <td><span class="swatch" style="background:${l.color}"></span>${l.txt}</td>
       <td>${id.slice(0, 4)}</td>
       <td>${p.rtt == null ? '—' : Math.round(p.rtt)}</td>
@@ -410,125 +357,14 @@ function renderRoster() {
 
 const fmtAgo = ms => ms < 60000 ? `${Math.round(ms / 1000)} s` : `${Math.floor(ms / 60000)} min`;
 
-// ── Timeline (score mode) ─────────────────────────────────────────────────────
-// Colour by the sound's place in the score (first sound, second sound, …)
-const soundHue = n => [95, 20, 200, 285, 335, 0, 45, 170, 245][Math.max(0, comp.sounds.indexOf(n)) % 9];
-
-// The corners of a piecewise-linear curve between t0 and t1, for drawing it
-// exactly (sampling at even steps would smear a 20 ms attack over seconds)
-function curvePoints(pts, t0, t1) {
-  return [{ t: t0, v: valueAt(pts, t0) }, ...pts.filter(p => p.t > t0 && p.t < t1),
-          { t: t1, v: valueLeft(pts, t1) }];
-}
-
-// A layer's loudness as drawn: its gain, times a one-shot's fadeOut if any
-function envelopePoints(L, tail, tEnd) {
-  const pts = curvePoints(L.gain, L.start, tEnd);
-  if (!tail) return pts;
-  return [...pts.map(p => ({ t: p.t, v: p.v * valueAt(tail, p.t) })),
-          ...tail.filter(p => p.t > L.start && p.t < tEnd).map(p => ({ t: p.t, v: p.v * valueAt(L.gain, p.t) }))]
-    .sort((a, b) => a.t - b.t);
-}
-
+// ── Timeline (drawn by timeline.js) ───────────────────────────────────────────
 function drawTimeline() {
-  const canvas = document.getElementById('timeline');
-  const dpr = window.devicePixelRatio || 1;
-  const r0 = canvas.getBoundingClientRect();
-  if (!r0.width) return;
-  const W = Math.round(r0.width * dpr), H = Math.round(r0.height * dpr);
-  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-  const c = canvas.getContext('2d');
-  c.clearRect(0, 0, W, H);
-
-  const G = comp.groups.length, left = 28 * dpr, top = 16 * dpr;
-  const laneH = (H - top) / G;
-  const end = Math.max(comp.end, 1);
-  const x = t => left + (W - left - 6 * dpr) * (t / end);
-  c.font = `${10 * dpr}px 'Space Mono', monospace`;
-  c.textBaseline = 'middle';
-
-  // Minute grid
-  c.strokeStyle = themeColor('--dim'); c.fillStyle = themeColor('--mid'); c.lineWidth = 1;
-  const step = end > 600 ? 120 : end > 180 ? 60 : end > 60 ? 15 : 5;
-  for (let t = 0; t <= end; t += step) {
-    c.beginPath(); c.moveTo(x(t), top); c.lineTo(x(t), H); c.stroke();
-    c.fillText(fmtTime(t), x(t) + 3 * dpr, 7 * dpr);
-  }
-
-  comp.groups.forEach((g, gi) => {
-    const y0 = top + gi * laneH, y1 = y0 + laneH;
-    const muted = (S.muted || []).includes(g);
-    c.fillStyle = muted ? themeColor('--dim') : groupColor(g, comp.groups);
-    c.fillText(g, 8 * dpr, (y0 + y1) / 2);
-    c.strokeStyle = themeColor('--dim');
-    c.beginPath(); c.moveTo(left, y1); c.lineTo(W, y1); c.stroke();
-
-    for (const L of comp.layers.filter(L => L.group === g)) {
-      // A one-shot ends with its file (shown at normal speed; drift shifts it a little)
-      const fileEnd = L.loop === false && durations[L.sound] ? L.start + durations[L.sound] : Infinity;
-      const tEnd = Math.min(isFinite(L.stop) ? L.stop : end, fileEnd);
-      const hue = soundHue(L.sound);
-      // Gain envelope as a filled shape (grey when the group is muted)
-      c.fillStyle = muted ? 'hsl(0 0% 50% / 0.15)' : `hsl(${hue} 65% 50% / 0.35)`;
-      c.strokeStyle = muted ? 'hsl(0 0% 50% / 0.5)' : `hsl(${hue} 65% 45%)`;
-      c.beginPath();
-      c.moveTo(x(L.start), y1 - 2 * dpr);
-      for (const p of envelopePoints(L, tailCurve(L, fileEnd), tEnd))
-        c.lineTo(x(p.t), y1 - 2 * dpr - (laneH - 8 * dpr) * p.v);
-      c.lineTo(x(tEnd), y1 - 2 * dpr);
-      c.closePath(); c.fill(); c.stroke();
-      // Drift curve (dashed), scaled to the largest drift in the score
-      const maxD = Math.max(1e-6, ...comp.layers.flatMap(l => effectiveDrift(l, S.overrides).map(p => p.v)));
-      const drift = effectiveDrift(L, S.overrides);
-      c.setLineDash([3 * dpr, 3 * dpr]);
-      c.strokeStyle = themeColor(muted ? '--dim' : '--fg'); c.lineWidth = 1 * dpr;
-      c.beginPath();
-      curvePoints(drift, L.start, tEnd).forEach((p, i) => {
-        const yy = y1 - 2 * dpr - (laneH - 8 * dpr) * Math.max(0, p.v) / maxD;
-        i ? c.lineTo(x(p.t), yy) : c.moveTo(x(p.t), yy);
-      });
-      c.stroke(); c.setLineDash([]); c.lineWidth = 1;
-      // Label: sound and starting ratio
-      c.fillStyle = themeColor(muted ? '--mid' : '--fg');
-      c.fillText(`${L.sound} · ${(1 + L.drift[0].v).toFixed(3)}`, x(L.start) + 4 * dpr, y0 + 10 * dpr);
-    }
-  });
-
-  // Spread (across groups): dotted curve + labels in the axis band
-  const maxS = Math.max(1e-6, ...comp.spread.map(p => p.v));
-  if (comp.spread.some(p => p.v > 0)) {
-    c.strokeStyle = themeColor('--cp'); c.lineWidth = 1 * dpr; c.setLineDash([1 * dpr, 2 * dpr]);
-    c.beginPath();
-    for (let i = 0; i <= 200; i++) {
-      const t = end * i / 200, yy = top - 1 * dpr - 5 * dpr * valueAt(comp.spread, t) / maxS;
-      i ? c.lineTo(x(t), yy) : c.moveTo(x(t), yy);
-    }
-    c.stroke(); c.setLineDash([]); c.lineWidth = 1;
-    c.fillStyle = themeColor('--cp');
-    let prev = null;
-    for (const p of comp.spread) {
-      if (p.v === prev) continue;
-      prev = p.v;
-      if (p.t > 0 || p.v > 0) c.fillText(`spread ${(1 + p.v).toFixed(3)}`, x(p.t) + 2 * dpr, top + laneH * G - 8 * dpr);
-    }
-  }
-
-  // Overrides: band along the top
-  S.overrides.forEach((o, i) => {
-    if (o.d === null) return;
-    const b = i + 1 < S.overrides.length ? S.overrides[i + 1].t : (S.playing ? Math.min(scoreNow(), end) : o.t);
-    c.fillStyle = themeColor('--c2');
-    c.fillRect(x(o.t), top - 4 * dpr, Math.max(2, x(b) - x(o.t)), 3 * dpr);
-  });
-
-  // Playhead, or the "start from" marker when stopped
   const from = parseTime(document.getElementById('fromCtrl').value || '0') || 0;
-  const tHead = S.playing && S.mode === 'score' ? scoreNow() : from;
-  if (tHead >= 0 && tHead <= end) {
-    c.strokeStyle = themeColor('--cp'); c.lineWidth = 2 * dpr;
-    c.beginPath(); c.moveTo(x(tHead), top - 6 * dpr); c.lineTo(x(tHead), H); c.stroke();
-  }
-  canvas._x2t = px => (px * dpr - left) / (W - left - 6 * dpr) * end;
+  const playing = S.playing;
+  drawScoreTimeline(document.getElementById('timeline'), comp, {
+    overrides: S.overrides, now: playing ? scoreNow() : null, head: playing ? scoreNow() : from,
+    muted: S.muted || [], duration: n => durations[scoreURL(n)] || null,
+  });
 }
 
 // The column of group letters (CSS px), same layout as drawTimeline()
@@ -557,21 +393,9 @@ function timelineClick(ev) {
   document.getElementById('fromCtrl').value = fmtTime(t);
 }
 
-// ── Ring (free mode) ──────────────────────────────────────────────────────────
 function renderLoop() {
-  if (S.mode === 'score') {
-    drawTimeline();
-    renderStatus();
-  } else {
-    const canvas = document.getElementById('ring');
-    const now = localNow(), dur = durations[soundId(S.sound)];
-    let hands = [];
-    if (S.playing && dur && now >= S.T0) {
-      const vs = [...new Set([1, ...[...roster.values()].filter(awake).map(p => p.voice)])].sort((a, b) => a - b);
-      hands = vs.map(k => ({ pos: voicePos(S, k, now, dur) / dur, color: voiceColor(k), width: k === 1 ? 3 : 2 }));
-    }
-    drawRing(canvas, hands);
-  }
+  drawTimeline();
+  renderStatus();
   renderCalib();
   requestAnimationFrame(renderLoop);
 }
@@ -588,8 +412,8 @@ const link = document.getElementById('joinLink');
 link.href = link.textContent = performerURL;
 if (/^(localhost|127\.|\[::1\])/.test(location.hostname)) {
   link.insertAdjacentHTML('afterend',
-    '<p class="hint" style="color:var(--c2);margin-top:0.5rem">This link says “localhost”, which on a phone means the phone itself. ' +
-    'Open this conductor page via your computer’s network address instead (e.g. http://192.168.1.23:8080/…).</p>');
+    '<p class="hint" style="color:var(--c2);margin-top:0.5rem">Phones can’t open “localhost”. ' +
+    'Open this page through a tunnel address instead (see the README).</p>');
 }
 try {
   const qr = qrcode(0, 'M');
@@ -607,27 +431,16 @@ document.getElementById('qr').addEventListener('click', ev => {
 });
 qrOverlay.addEventListener('click', () => qrOverlay.close());
 
-document.getElementById('scoreSel').innerHTML =
-  SCORES.map((s, i) => `<option value="${i}">${s.title || 'Score ' + (i + 1)}</option>`).join('');
+document.getElementById('linkCtrl').addEventListener('keydown', ev => { if (ev.key === 'Enter') loadLink(); });
 document.getElementById('timeline').addEventListener('click', timelineClick);
 document.getElementById('timeline').addEventListener('mousemove', ev => {
   ev.currentTarget.style.cursor = groupAtLetter(ev) ? 'pointer' : '';
 });
-
-// Free-mode sound buttons, from LOOP_SOUNDS (scores.js)
-const soundBtns = document.getElementById('soundBtns');
-for (const n of LOOP_SOUNDS.map(soundId)) {
-  const b = document.createElement('button');
-  b.className = 'sound-btn';
-  b.dataset.sound = b.textContent = n;
-  b.onclick = () => selectSound(n);
-  soundBtns.appendChild(b);
-}
 
 document.getElementById('themeBtn').textContent =
   document.documentElement.dataset.theme === 'dark' ? '◐   Light' : '◐   Dark';
 refreshUI();
 renderRoster();
 setInterval(renderRoster, 1000);
-loadDurations([...LOOP_SOUNDS, ...comp.sounds]);
+loadDurations(comp.sounds.map(scoreURL));
 requestAnimationFrame(renderLoop);
