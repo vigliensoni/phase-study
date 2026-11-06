@@ -85,7 +85,7 @@ All three use the same score format, below.
 - **Sounds:** add audio files; each gets a name the events use (renaming one renames it in the events).
 - **Effects:** each group's chain, in order; *Copy to every group* gives the others the same chain.
 - **Events:** time, groups, and what happens (play, stop, ratio, spread, level, set). *Play once* makes a one-shot, with an optional *Fade out end*.
-- **Timeline and Preview:** the conductor's timeline, updated as you type, with mistakes listed under it. **Preview** plays the ticked groups here, as several phones each, with drift and effects; press it again to hear changes.
+- **Timeline and Preview:** the conductor's timeline, updated as you type, with mistakes listed under it. **Preview** plays the ticked groups here, as several phones each, with drift and effects; press it again to hear changes. *Preview phones per group* is only for the preview: in the room any number of phones can join, and the more phones in a group, the wider its drift spreads (phone *k* drifts *k* − 1 times the ratio). Preview with about as many as you expect per group.
 - **Save:** **Download ZIP** gives the piece's folder (`score.json` and its sounds); upload its contents to your repo. **Copy score.json** if you only changed the score.
 
 ### Pieces from a GitHub link
