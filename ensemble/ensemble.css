@@ -14,6 +14,8 @@ body { min-height: 100dvh; }
   padding: 0.2rem 0.55rem; border: 1px solid var(--dim); color: var(--mid);
 }
 .pill.ok { color: var(--accent); border-color: var(--accent); }
+a.pill { text-decoration: none; }
+a.pill:hover { color: var(--fg); border-color: var(--fg); }
 
 .ring { width: 100%; aspect-ratio: 1; display: block; }
 
@@ -26,7 +28,7 @@ input[type=number] {
 /* ── Conductor ──────────────────────────────────────────────────────────────── */
 .cond-grid {
   display: grid; gap: 1.6rem;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 300px;
 }
 @media (max-width: 900px) { .cond-grid { grid-template-columns: 1fr; } }
 
@@ -55,7 +57,6 @@ input[type=number] {
 table.roster { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
 .roster th, .roster td { text-align: left; padding: 0.35rem 0.4rem; border-bottom: 1px solid var(--dim); }
 .roster th { font-weight: 400; color: var(--mid); letter-spacing: 0.1em; font-size: 0.6rem; text-transform: uppercase; }
-.roster tr.dupe td { color: var(--c2); }
 .roster td.empty { color: var(--mid); padding: 1rem 0.4rem; }
 .roster tr.pinged td { background: var(--accent); color: var(--on-accent); }
 #calibBtn, #standbyBtn { margin-top: 0.5rem; }
@@ -75,12 +76,6 @@ table.roster { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
   font-size: clamp(5rem, 30vw, 9rem); line-height: 0.9; text-align: center;
 }
 
-.voice-pick { display: flex; gap: 0.5rem; align-items: center; justify-content: center; }
-.voice-pick button {
-  font: inherit; font-size: 1.4rem; width: 3rem; height: 3rem;
-  background: var(--surface); color: var(--fg); border: 1px solid var(--dim); cursor: pointer;
-}
-
 .status-line { text-align: center; font-size: 0.8rem; letter-spacing: 0.14em; }
 .stats-line  { text-align: center; font-size: 0.62rem; color: var(--mid); min-height: 1em; }
 
@@ -93,9 +88,6 @@ table.roster { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
 .only-joined { display: none !important; }
 body.joined .only-joined { display: flex !important; }
 body.joined .join-screen { display: none; }
-
-body.score-mode .free-only { display: none !important; }
-body:not(.score-mode) .score-only { display: none !important; }
 
 /* Test sound / calibration turn: flash the whole screen */
 body { transition: background 0.35s; }
@@ -116,15 +108,6 @@ body.standby.pinged .standby-screen { background: var(--accent); transition: non
 
 /* Keep-awake fallback video: must be "visible" to play, so make it tiny */
 .keep-video { position: fixed; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; bottom: 0; left: 0; }
-
-.mode-tabs { display: inline-flex; margin-right: 0.6rem; }
-.mode-btn {
-  font-family: 'Space Mono', monospace; font-size: 0.72rem; letter-spacing: 0.15em;
-  text-transform: uppercase; padding: 0.3rem 0.7rem; cursor: pointer;
-  border: 1px solid var(--dim); background: none; color: var(--mid);
-}
-.mode-btn + .mode-btn { border-left: none; }
-.mode-btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 .timeline-sec { margin-bottom: 1.6rem; }
 #timeline { display: block; width: 100%; height: 240px; cursor: crosshair;
@@ -147,12 +130,6 @@ body.standby.pinged .standby-screen { background: var(--accent); transition: non
 .from-ctrl { width: 5.5rem; text-align: right; }
 #btnFollow { margin-top: 0.6rem; }
 #btnFollow:disabled { opacity: 0.4; cursor: default; }
-body.score-mode .cond-grid { grid-template-columns: minmax(0, 1fr) 300px; }
-@media (max-width: 900px) { body.score-mode .cond-grid { grid-template-columns: 1fr; } }
-
-/* Free-mode sound buttons hold names ('door', 'P01/03'), not just 1–5 */
-.sound-btns { grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); }
-.sound-btn { font-size: 0.75rem; padding: 0.55rem 0.3rem; overflow-wrap: anywhere; }
 
 /* ── Score editor ───────────────────────────────────────────────────────────── */
 .editor .ed-sec { margin-bottom: 1.8rem; }

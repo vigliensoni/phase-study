@@ -1,13 +1,11 @@
-# It’s Gonna Rain — Ensemble
+# Ensemble
 
-The phase study, spread across many phones. One laptop conducts; every phone in the room is one voice, and the phasing happens in the room, between the phones.
-
-Voice 1 plays the loop at its original speed and voice *k* plays at `1 + (k − 1) · (ratio − 1)`: with ratio 1.002, voice 2 is 0.2 % faster, voice 3 is 0.4 % faster, and so on.
+Phase music across many phones. One laptop conducts a timed score; the phones in the room are dealt into groups, and each group plays its part, drifting slowly out of phase, inside the group and against the other groups.
 
 There are three pages:
 
 - `conductor.html` — on the laptop / projector: runs the piece.
-- `index.html` — on each phone: one voice (phones get here from the conductor's QR code).
+- `index.html` — on each phone: plays its group's part (phones get here from the conductor's QR code).
 - `editor.html` — writes a score, previews it, and saves it for a GitHub repo.
 
 ## Running a session
@@ -15,13 +13,19 @@ There are three pages:
 1. Open `conductor.html`. It shows a room code and a QR code; click the QR code to fill the screen with it for the projector (Esc closes it).
 2. Performers scan it and tap **Join** (browsers only start audio after a tap).
 3. Press **Calibrate levels** and match the phones' volumes (see *Calibrating levels*).
-4. Pick a mode and press **Start**.
+4. Pick a score from the menu, or paste a GitHub link to a piece and press **Load** (see *Pieces from a GitHub link*).
+5. Press **Start**. The piece starts 1.5 s later, on every phone at once.
 
-**Free mode** plays one loop, every phone a voice. Each phone gets the lowest free voice number as it joins; **Number voices 1…N** renumbers everyone in join order (e.g. after phones leave), and a performer can nudge their own voice with − / +. **Start** lands 1.5 s after you press it; the ratio slider and **Pause phasing** take effect 0.4 s after you use them, on every phone at once. **Sync voices** restarts everyone aligned. The **Sound** buttons choose the loop (they come from `LOOP_SOUNDS` in `scores.js`).
+The conductor's controls:
 
-**Score mode** plays a timed piece (see *Score mode*).
+- **Groups:** a score says how many groups it needs (`groups: 3` → A, B, C). Phones are dealt into them in join order (1st → A, 2nd → B, 3rd → C, 4th → A…), and each phone shows its group and number. A phone that reloads keeps its group; **Re-deal groups** evens them out after phones leave.
+- **Start from:** type a time or click the timeline, then **Start**, to rehearse a section.
+- **Mute a group:** click its letter on the timeline (click again to unmute). Works while playing.
+- **Live drift override:** moving the slider overrides every group's scored drift; **Follow score** hands control back.
+- **Editor →** (top right) opens the current piece in the score editor.
+- **Mistakes** in the score (an unknown group, a missing sound file, a bad time) show in red under the timeline.
 
-Anyone joining late or reloading jumps straight to where they should be. The conductor can reload too: it picks the piece back up from the broker.
+The whole score goes to every phone once, with a start time. Each phone schedules its own part ahead, so a network hiccup mid-piece doesn't matter, and anyone joining late or reloading starts exactly where their group is. The conductor can reload too: it picks the piece back up from the broker.
 
 ### Running it from your own computer
 
@@ -34,7 +38,7 @@ npm install -g http-server
 winget install --id Cloudflare.cloudflared     # macOS: brew install cloudflared
 ```
 
-Then, from the repo's root folder (the one holding `index.html` and `ensemble/`), in two terminals:
+Then, from the repo's root folder (the one holding `style.css` and `ensemble/`), in two terminals:
 
 ```powershell
 http-server -p 8000 -c-1                         # terminal 1: serve the site, no caching
@@ -63,19 +67,6 @@ The page helps: it holds a wake lock (asking again whenever the system takes it 
 ### Calibrating levels
 
 **Calibrate levels** makes every phone play its test sound in turn, 0.5 s apart, in the order of the Performers table. Each phone flashes on its turn and its row lights up on the conductor. Adjust each phone's **Volume** until they match, then press again for another round. The turns run on the shared clock, so the gaps stay even whatever the network does; a phone that isn't synced yet sits the round out.
-
-## Score mode
-
-Switch the conductor to **Score**, then pick a score from the menu, or paste a GitHub link to a piece and press **Load** (see *Pieces from a GitHub link*). **Write or edit a score in the editor →** opens the current piece in the editor.
-
-- **Groups:** a score says how many groups it needs (`groups: 3` → A, B, C). Phones are dealt into them in join order (1st → A, 2nd → B, 3rd → C, 4th → A…), and each phone shows its group and number. A phone that reloads keeps its group; **Re-deal groups** evens them out after phones leave.
-- **Two kinds of drift:** `ratio` works *inside* a group (phone *k* drifts from the group's first phone); `spread` works *across* groups (B drifts from A, C twice as far…). Together, phone *k* of group *j* plays at `1 + (k − 1)·(ratio − 1) + (j − 1)·(spread − 1)`.
-- **Start from:** type a time or click the timeline, then **Start score**, to rehearse a section.
-- **Mute a group:** click its letter on the timeline (click again to unmute). Works while playing.
-- **Live override:** moving the ratio slider overrides every group's scored drift; **Follow score** hands control back.
-- **Mistakes** in the score (an unknown group, a missing sound file, a bad time) show in red under the timeline.
-
-The whole score goes to every phone once, with a start time. Each phone schedules its own part ahead, so a network hiccup mid-piece doesn't matter, and a late phone starts exactly where its group is.
 
 ## Writing a piece
 
@@ -205,14 +196,14 @@ Give every PTC score (titled *PTC …*, using `assets/PTC/`) `credit: PTC_CREDIT
 - **Phones out of time:** Bluetooth speakers add 150–300 ms; avoid them, or use the phone's latency trim.
 - **Phones can't connect:** some campus guest Wi-Fi blocks WebSockets. Use a phone hotspot or cellular data.
 - **A GitHub piece won't load:** the repo must be public, the link must point at the folder holding `score.json`, and a fresh push can take 5 minutes to appear.
-- **Monitor on the laptop:** open the performer page in another tab and join.
+- **Monitor on the laptop:** open the phone page (the conductor's join link) in another tab and join.
 
 ## How it works
 
 ### Timing
 
 - **Clock:** each phone pings the conductor through the broker every 2.5 s and keeps the offset from the fastest round trips (NTP-style). The phone shows `sync ±x ms` and `rtt`.
-- **Play at T:** the conductor never says "play now". It publishes a retained *state* message with the start time and the drift history, from which any phone can work out where its voice should be at any moment (`voicePos` in `net.js`).
+- **Play at T:** the conductor never says "play now". It publishes a retained *state* message with the score and its start time, from which any phone can work out where its group should be at any moment.
 - **Audio clock:** `getOutputTimestamp()` maps shared time to when sound leaves the speaker, so output latency is included where the browser reports it.
 - **Drift:** every 4 s each phone checks how far its audio has slipped; past 20 ms it re-seats with a 30 ms crossfade.
 - **Latency trim:** a per-phone slider, saved on the device, for phones whose reported latency is wrong (some Android models, anything on Bluetooth).
@@ -259,8 +250,8 @@ Then open `conductor.html?broker=wss://your.server/mqtt`.
 index.html       Performer page (each phone)
 conductor.html   Conductor page (laptop / projector)
 editor.html      Score editor
-scores.js        The built-in scores, Free-mode sounds, and the sound folder
-net.js           Broker connection, topics, the phase maths, ring drawing
+scores.js        The built-in scores, and the sound folder
+net.js           Broker connection, topics, clock, ring drawing
 score-engine.js  Compiles a score into each group's layers; drift maths
 effects.js       Each group's effect chain
 pieces.js        Loads a piece from a GitHub link
@@ -279,4 +270,3 @@ Sounds live in `../assets/`; the built-in ones are in `../assets/demo/`.
 
 - Quantize cues to the loop boundary instead of a fixed lead time.
 - Per-phone gain or filtering sent from the conductor, to shape the spatial mix.
-- Different samples per voice group (Reich's *Come Out* uses the same idea with more voices).

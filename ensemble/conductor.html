@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IT'S GONNA RAIN — Ensemble · Conductor</title>
+<title>Conductor</title>
 <script>
   try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
 </script>
@@ -16,22 +16,18 @@
 
 <header>
   <div class="title-block">
-    <h1>It's Gonna Rain</h1>
-    <h2>Ensemble · Conductor</h2>
+    <h1>Conductor</h1>
   </div>
   <div class="meta">
-    <span class="mode-tabs">
-      <button class="mode-btn" data-mode="free"  onclick="setMode('free')">Free</button>
-      <button class="mode-btn" data-mode="score" onclick="setMode('score')">Score</button>
-    </span>
+    <a class="pill" id="editLink" href="editor.html" target="_blank" rel="noopener" title="Open this piece in the score editor">Editor →</a>
     <span class="pill" id="netTxt">CONNECTING…</span>
     <button class="theme-btn" id="themeBtn" onclick="themeChanged()">◐ &nbsp;Dark</button>
   </div>
 </header>
 
 <div class="wrap">
-  <section class="score-only timeline-sec">
-    <div class="ctrl-title">Score · <span id="scoreTitleHint">click the timeline to choose where to start</span></div>
+  <section class="timeline-sec">
+    <div class="ctrl-title">Score · <span class="hint">click to choose where to start; click a group's letter to mute it</span></div>
     <canvas id="timeline"></canvas>
     <div class="score-err" id="scoreErr"></div>
     <div class="score-credit" id="scoreCredit"></div>
@@ -47,76 +43,63 @@
         <div>
           <div class="label">Room</div>
           <div class="room-code" id="roomTxt">—</div>
-          <p class="hint" style="margin:0.6rem 0 0.3rem">Scan and tap&nbsp;Join. Click the code to enlarge it.</p>
+          <p class="hint" style="margin:0.6rem 0 0.3rem">Scan and tap Join. Click the code to enlarge it.</p>
           <a class="join-link" id="joinLink" target="_blank" rel="noopener"></a>
         </div>
       </div>
 
       <div class="ctrl-title" style="margin-top:1.6rem">
         Performers · <span id="countTxt">0</span>
-        <span class="score-only" id="groupCounts" style="float:right"></span>
+        <span id="groupCounts" style="float:right"></span>
       </div>
       <table class="roster">
-        <thead><tr><th>Voice / group</th><th>Phone</th><th>RTT ms</th><th>Sync ms</th><th>Out lat ms</th><th></th></tr></thead>
+        <thead><tr><th>Group</th><th>Phone</th><th>RTT ms</th><th>Sync ms</th><th>Out lat ms</th><th></th></tr></thead>
         <tbody id="rosterBody"></tbody>
       </table>
-      <button class="btn btn-reset" style="margin-top:0.8rem" id="assignBtn" onclick="autoAssign()">⇢ &nbsp;Number voices 1…N</button>
+      <button class="btn btn-reset" style="margin-top:0.8rem" onclick="rebalance(true)">⇢ &nbsp;Re-deal groups</button>
       <button class="btn btn-reset" id="calibBtn" onclick="calibrate()">♪ &nbsp;Calibrate levels</button>
       <button class="btn btn-reset" id="standbyBtn" onclick="toggleStandby()">◻ &nbsp;Standby: off</button>
-      <p class="hint" style="margin-top:0.5rem">Calibrate: each phone plays its test sound in turn, 0.5&nbsp;s apart, in the order above, and flashes its screen. Set each phone’s volume until they match; press again for another round.
-        Standby: black out every phone between pieces. They stay awake and connected, still play and flash, and performers can tap to peek. Rows marked <em>asleep</em> are phones that stopped reporting (screen locked?): go and wake them.</p>
-      <p class="hint free-only" style="margin-top:0.5rem">Voice 1 plays at the original speed; each next voice drifts a little faster. Red rows share a voice number.</p>
-      <p class="hint score-only" style="margin-top:0.5rem">The score sets how many groups there are; phones are dealt into them as they join (A, B, C, A…), and re-dealt when you pick another score. <em>Ratio</em> drifts phones apart inside a group; <em>spread</em> drifts the groups apart. “Re-deal” evens out the groups after phones leave.</p>
-    </section>
-
-    <!-- Ring -->
-    <section class="free-only">
-      <div class="ctrl-title">Playheads · all voices</div>
-      <canvas class="ring" id="ring"></canvas>
+      <p class="hint" style="margin-top:0.5rem">
+        <strong>Re-deal</strong> evens out the groups after phones leave.
+        <strong>Calibrate</strong> plays each phone in turn, so you can match their volumes.
+        <strong>Standby</strong> blacks out the phones between pieces.
+        <em>Asleep</em> phones have locked: go and wake them.</p>
     </section>
 
     <!-- Controls -->
     <section class="cond-controls">
-      <div class="score-only">
-        <div class="ctrl-title">Score</div>
+      <div>
+        <div class="ctrl-title">Piece</div>
         <select id="scoreSel" class="score-sel" onchange="selectScore(this.value)"></select>
         <div class="link-row">
-          <input type="url" id="linkCtrl" class="link-ctrl" placeholder="…or paste a GitHub link to a piece">
+          <input type="url" id="linkCtrl" class="link-ctrl" placeholder="…or paste a GitHub link">
           <button class="btn btn-reset link-btn" onclick="loadLink()">Load</button>
         </div>
-        <p class="hint link-status" id="linkStatus">A piece is a folder with <code>score.json</code> and its sounds, in a public GitHub repo, e.g. <code>github.com/you/your-piece</code> or <code>…/tree/main/folder</code>.</p>
-        <a class="join-link" id="editLink" href="editor.html" target="_blank" rel="noopener">Write or edit a score in the editor →</a>
+        <p class="hint link-status" id="linkStatus">A public repo folder with <code>score.json</code> and its sounds.</p>
         <div class="ctrl-row" style="margin-top:0.8rem">
           <div class="ctrl-hd"><span class="cn">Start from</span>
             <input type="text" id="fromCtrl" class="from-ctrl" value="0:00" inputmode="numeric"></div>
         </div>
       </div>
 
-      <div class="free-only">
-        <div class="ctrl-title">Sound</div>
-        <div class="sound-btns" id="soundBtns"></div>
-      </div>
-
       <div>
         <div class="ctrl-title">Transport</div>
-        <button class="btn btn-play"  id="btnPlay"  onclick="togglePlay()">▶ &nbsp;Start</button>
-        <button class="btn btn-phase free-only" id="btnPhase" onclick="togglePhasing()" disabled>⏸ &nbsp;Pause phasing</button>
-        <button class="btn btn-reset free-only" id="btnSync"  onclick="resync()" disabled>↺ &nbsp;Sync voices</button>
+        <button class="btn btn-play" id="btnPlay" onclick="togglePlay()">▶ &nbsp;Start</button>
         <div class="status">STATUS: <span id="statusTxt">STOPPED</span></div>
       </div>
 
       <div>
-        <div class="ctrl-title" id="driftTitle">Drift — Voice 2 speed</div>
+        <div class="ctrl-title">Live drift override</div>
         <div class="ctrl-row">
           <div class="ctrl-hd">
             <span class="cn">Ratio</span>
-            <span class="cv" id="ratioVal">1.0020</span>
+            <span class="cv" id="ratioVal">score</span>
           </div>
           <input type="range" class="r2" id="ratioCtrl" min="1.0" max="1.03"
-            step="0.0001" value="1.002" oninput="updateRatio()">
+            step="0.0001" value="1" oninput="updateRatio()">
         </div>
-        <button class="btn btn-reset score-only" id="btnFollow" onclick="followScore()" disabled>⇠ &nbsp;Follow score</button>
-        <p class="hint" id="driftHint" style="margin-top:0.6rem">Voice k runs at 1&nbsp;+&nbsp;(k−1)·(ratio−1). Start lands 1.5&nbsp;s after you press; other changes 0.4&nbsp;s after.</p>
+        <button class="btn btn-reset" id="btnFollow" onclick="followScore()" disabled>⇠ &nbsp;Follow score</button>
+        <p class="hint" style="margin-top:0.6rem">The slider overrides the score's drift; <strong>Follow score</strong> hands it back.</p>
       </div>
     </section>
 

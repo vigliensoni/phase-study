@@ -1,9 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// IT'S GONNA RAIN — ENSEMBLE · shared networking + timing
+// NET — shared networking and timing.
 //
-// One conductor page, many performer phones. Every phone is one voice of the
-// phase piece: voice k plays the loop at rate 1 + (k−1)·(ratio−1), so voice 1
-// is the reference and each following voice drifts a little faster.
+// One conductor page, many performer phones, dealt into the groups of a score.
 //
 // Transport: MQTT over secure WebSocket, through a broker (a small relay
 // server). The site itself stays static; only the broker is "live".
@@ -14,7 +12,7 @@ const params     = new URLSearchParams(location.search);
 const BROKER_URL = params.get('broker') || 'wss://broker.hivemq.com:8884/mqtt';
 const TOPIC_BASE = 'cart346/c04-ensemble';
 
-const LEAD_START  = 1500; // ms between pressing Start/Sync and the downbeat
+const LEAD_START  = 1500; // ms between pressing Start and the downbeat
 const LEAD_CHANGE = 400;  // ms between moving a control and it taking effect
 const CALIB_GAP   = 500;  // ms between phones during level calibration
 
@@ -25,7 +23,6 @@ function topics(room) {
     ping:     `${b}/ping`,     // performer → conductor clock request
     pong: id => `${b}/pong/${id}`,
     presence: `${b}/presence`, // performer heartbeat (roster)
-    assign:   `${b}/assign`,   // conductor → performers: voice numbers
     calib:    `${b}/calib`,    // conductor → performers: test-sound round, one phone at a time
   };
 }
@@ -56,27 +53,7 @@ const localNow = () => performance.timeOrigin + performance.now();
 
 const safeParse = buf => { try { return JSON.parse(buf.toString()); } catch (e) { return null; } };
 
-// ── The piece as math ─────────────────────────────────────────────────────────
-// A state message fully describes where every voice is at any shared time t:
-//   phi(t)   = phiA + (t − tA)·d          accumulated drift (seconds)
-//   pos_k(t) = (t − T0) + (k−1)·phi(t)    loop position of voice k (seconds)
-//   rate_k   = 1 + (k−1)·d
-// with d = ratio − 1 (or 0 while phasing is paused). Any phone, joining at any
-// moment, can compute exactly where its voice should be.
-function drift(S) { return S.paused ? 0 : S.ratio - 1; }
-
-function phiAt(S, t) {
-  return S.phiA + Math.max(0, t - S.tA) / 1000 * drift(S);
-}
-
-function voicePos(S, voice, t, dur) {
-  const p = (t - S.T0) / 1000 + (voice - 1) * phiAt(S, t);
-  return ((p % dur) + dur) % dur;
-}
-
-function voiceRate(S, voice) { return 1 + (voice - 1) * drift(S); }
-
-// ── Shared ring display ───────────────────────────────────────────────────────
+// ── Ring display (each phone's playhead) ─────────────────────────────────────
 function themeColor(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -109,14 +86,7 @@ function drawRing(canvas, hands) {
   c.beginPath(); c.arc(cx, cy, 3 * dpr, 0, Math.PI * 2); c.fill();
 }
 
-// Colour for voice k on the conductor ring: voice 1 = --c1, then a hue walk
-function voiceColor(k) {
-  if (k === 1) return themeColor('--c1');
-  const hues = [20, 200, 285, 335, 40, 170, 245, 0];
-  return `hsl(${hues[(k - 2) % hues.length]} 75% 52%)`;
-}
-
-// ── Theme (same convention as the study page) ─────────────────────────────────
+// ── Theme ─────────────────────────────────────────────────────────────────────
 function toggleTheme() {
   const dark = document.documentElement.dataset.theme !== 'dark';
   if (dark) document.documentElement.dataset.theme = 'dark';

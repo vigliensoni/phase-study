@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IT'S GONNA RAIN — Ensemble · Score editor</title>
+<title>Score editor</title>
 <script>
   try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
 </script>
@@ -15,8 +15,7 @@
 
 <header>
   <div class="title-block">
-    <h1>It's Gonna Rain</h1>
-    <h2>Ensemble · Score editor</h2>
+    <h1>Score editor</h1>
   </div>
   <div class="meta">
     <a class="pill" href="conductor.html">Conductor →</a>
@@ -67,7 +66,7 @@
     <div id="sounds"></div>
     <label class="btn btn-reset ed-btn ed-file">+ Add audio files…
       <input type="file" id="addSounds" accept="audio/*,.aif,.aiff" multiple hidden></label>
-    <p class="hint">Each sound gets a name (used in the events below) and is saved as <code>audio/&lt;file&gt;</code> in the piece's folder. Sounds loop, unless the event that plays them ticks <em>Play once</em>. Prefer <code>.mp3</code> or <code>.ogg</code>, and keep each file under 100&nbsp;MB.</p>
+    <p class="hint">Events use these names. Prefer <code>.mp3</code> or <code>.ogg</code>, under 100&nbsp;MB each.</p>
   </section>
 
   <!-- Effects -->
@@ -82,12 +81,12 @@
     <div id="events"></div>
     <button class="btn btn-reset ed-btn" onclick="addEvent()">+ Add event</button>
     <button class="btn btn-reset ed-btn" onclick="sortEvents()">Sort by time</button>
-    <p class="hint"><em>Play</em> starts a sound in the chosen groups (<em>Play once</em> plays the file once instead of looping; <em>Fade out end</em> fades over its last seconds), <em>stop</em> fades it out. <em>Ratio</em> drifts the phones of a group apart; <em>spread</em> drifts the groups apart (the whole piece). <em>Level</em> changes loudness; <em>set</em> changes an effect setting. Fades and glides are in seconds.</p>
+    <p class="hint"><em>Ratio</em> drifts the phones in a group apart; <em>spread</em> drifts the groups apart. Times in seconds.</p>
   </section>
 
   <!-- Timeline + preview -->
   <section class="timeline-sec ed-sec">
-    <div class="ctrl-title">Score · <span class="hint">click the timeline to choose where the preview starts</span></div>
+    <div class="ctrl-title">Preview · <span class="hint">click the timeline to choose where to start</span></div>
     <canvas id="timeline"></canvas>
     <ul class="score-err ed-errors" id="errors"></ul>
 
@@ -100,7 +99,7 @@
       <button class="btn btn-play ed-btn" id="previewPlay" onclick="previewToggle()">▶ &nbsp;Preview</button>
       <span class="status">STATUS: <span id="previewStatus">STOPPED</span></span>
     </div>
-    <p class="hint">Plays the ticked groups here, as that many phones each, with their drift and effects. Press Preview again after editing to hear the change.</p>
+    <p class="hint">Press Preview again after editing to hear the change.</p>
   </section>
 
   <!-- Save -->
@@ -110,7 +109,7 @@
       <button class="btn btn-play ed-btn" onclick="downloadZip()">⇣ &nbsp;Download ZIP</button>
       <button class="btn btn-reset ed-btn" onclick="copyJSON()">Copy score.json</button>
     </div>
-    <p class="hint" id="saveStatus">The ZIP holds the piece's folder: <code>score.json</code> and <code>audio/</code>. Upload its contents to a public GitHub repo, then paste the repo's link into the conductor.</p>
+    <p class="hint" id="saveStatus">Upload the ZIP's contents to a public GitHub repo, then paste its link into the conductor.</p>
     <details class="ed-json"><summary class="cn">score.json</summary><pre id="json"></pre></details>
   </section>
 </div>
