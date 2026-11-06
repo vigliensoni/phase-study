@@ -5,7 +5,7 @@ Phase music across many phones. One laptop conducts a timed score; the phones in
 There are three pages:
 
 - `conductor.html` — on the laptop / projector: runs the piece.
-- `index.html` — on each phone: plays its group's part (phones get here from the conductor's QR code).
+- `index.html` — the *Performer* page, on each phone: plays its group's part (phones get here from the conductor's QR code).
 - `editor.html` — writes a score, previews it, and saves it for a GitHub repo.
 
 ## Running a session
@@ -158,21 +158,21 @@ A sound is named by its file path without `.wav`; other formats need their exten
 
 ### Effects
 
-Each group can run its sounds through a chain of effects, in order (`BC` gives B and C a chain each, `all` every group):
+Each group can run its sounds through a chain of effects, in order (`"BC"` gives B and C a chain each, `"all"` every group):
 
-```js
-effects: {
-  A:  [{ type: 'lowpass', frequency: 300, q: 4 }],
-  B:  [{ type: 'bandpass', lfo: { rate: 0.25, min: 300, max: 3000 } }],
-  CD: [{ type: 'delay', time: 0.375, feedback: 0.5, mix: 0.4 },
-       { type: 'reverb', decay: 6, mix: 0.2 }],
-},
+```json
+"effects": {
+  "A":  [{ "type": "lowpass", "frequency": 300, "q": 4 }],
+  "B":  [{ "type": "bandpass", "lfo": { "rate": 0.25, "min": 300, "max": 3000 } }],
+  "CD": [{ "type": "delay", "time": 0.375, "feedback": 0.5, "mix": 0.4 },
+         { "type": "reverb", "decay": 6, "mix": 0.2 }]
+}
 ```
 
-Change a setting during the piece with `set`, instantly or with a `glide`:
+Change a setting during the piece with a `set` event, instantly or with a `glide`:
 
-```js
-{ at: '0:00', groups: 'A', set: 'lowpass.frequency', to: 6000, glide: 20 },
+```json
+{ "at": "0:00", "groups": "A", "set": "lowpass.frequency", "to": 6000, "glide": 20 }
 ```
 
 | Type | Settings (default, range) | Fixed (set once) |
@@ -182,7 +182,7 @@ Change a setting during the piece with `set`, instantly or with a `glide`:
 | `delay` | `time` (0.25 s, 0.01–5), `feedback` (0.4, 0–0.95), `mix` (0.3, 0–1) | |
 | `pan` | `pan` (0, −1 left … 1 right) | |
 
-A setting is named `id.setting`; the id is the effect's type unless you give it an `id` (two effects of the same type in a group need different ids: `id: 'low2'` → `low2.frequency`). *Effects study* in the menu uses every type.
+A setting is named `id.setting`; the id is the effect's type unless you give it an `id` (two effects of the same type in a group need different ids: `"id": "low2"` → `low2.frequency`). *Effects study* in the menu uses every type.
 
 ### Credits
 
@@ -195,7 +195,7 @@ Give every PTC score (titled *PTC …*, using `assets/PTC/`) `credit: PTC_CREDIT
 - **Phones out of time:** Bluetooth speakers add 150–300 ms; avoid them, or use the phone's latency trim.
 - **Phones can't connect:** some campus guest Wi-Fi blocks WebSockets. Use a phone hotspot or cellular data.
 - **A GitHub piece won't load:** the repo must be public, the link must point at the folder holding `score.json`, and a fresh push can take 5 minutes to appear.
-- **Monitor on the laptop:** open the phone page (the conductor's join link) in another tab and join.
+- **Monitor on the laptop:** open the conductor's join link in another tab and join, like a phone.
 
 ## How it works
 
