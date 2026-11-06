@@ -13,7 +13,8 @@ const TYPO_TIME = 600; // an event later than 10 minutes is probably a typo
 
 // sounds:  [{ name, path, file, url }]  file = a File chosen here, url = where it
 //          already is (a repo or this site); path = where it goes in the folder
-// credit:  a credit line, shown on the conductor and the phones (optional)
+// credit:  a credit line, shown on the conductor and the phones. Not on the
+//          form: kept from an opened piece (the PTC scores need theirs)
 // effects: { A: [effect, …] }           as in score.json, one list per group
 // events:  [event, …]                   as in score.json
 let doc = blankDoc();
@@ -147,7 +148,6 @@ function renderLoop() {
 // ═══════════════════════════════════════════════════════════════════════════════
 function render() {
   $('title').value = doc.title;
-  $('credit').value = doc.credit;
   $('end').value = doc.end;
   $('groupCount').value = doc.groups;
   renderSounds();
@@ -599,7 +599,6 @@ $('groupCount').replaceChildren(...Array.from({ length: MAX_GROUPS }, (_, i) =>
   el('option', { value: i + 1, textContent: `${i + 1} (${LETTERS.slice(0, i + 1).split('').join(', ')})` })));
 $('groupCount').addEventListener('change', e => { doc.groups = +e.target.value; previewOn = new Set(); render(); });
 $('title').addEventListener('input', e => { doc.title = e.target.value; changed(); });
-$('credit').addEventListener('input', e => { doc.credit = e.target.value; changed(); });
 $('openBuiltIn').replaceChildren(el('option', { value: '', textContent: 'Open a built-in score…' }),
   ...SCORES.map((sc, i) => el('option', { value: i, textContent: sc.title || 'Score ' + (i + 1) })));
 $('openBuiltIn').addEventListener('change', e => { if (e.target.value !== '') openBuiltIn(e.target.value); e.target.value = ''; });

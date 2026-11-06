@@ -81,7 +81,7 @@ All three use the same score format, below.
 ### The score editor
 
 - **Open:** a GitHub link, a folder or ZIP on your computer, a built-in score, or a new piece.
-- **Piece:** title, number of groups, end time, credit line.
+- **Piece:** title, number of groups, end time.
 - **Sounds:** add audio files; each gets a name the events use (renaming one renames it in the events).
 - **Effects:** each group's chain, in order; *Copy to every group* gives the others the same chain.
 - **Events:** time, groups, and what happens (play, stop, ratio, spread, level, set). *Play once* makes a one-shot, with an optional *Fade out end*.
@@ -116,7 +116,6 @@ In `scores.js` a score is a JavaScript object; in `score.json` it's the same thi
 {
   "title": "Rain and door",
   "groups": 2,
-  "credit": "Sounds recorded by the class.",
   "sounds": { "rain": "audio/rain.mp3" },
   "events": [
     { "at": "0:00", "play": "rain", "ratio": 1.01, "fade": 5 },
