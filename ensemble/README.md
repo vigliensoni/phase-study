@@ -39,6 +39,30 @@ Sounds come from `../assets/`; the built-in ones are in `../assets/demo/`.
 
 Anyone joining late, or reloading, jumps straight to where their voice should be. The conductor can reload too; it picks the piece back up from the broker.
 
+### Running it from your own computer
+
+To test changes with phones before they're on GitHub Pages, serve the repo from your computer and open a public tunnel to it with Cloudflare's free *quick tunnel*. The tunnel gives an `https://` address any phone can reach, so it also works on networks that keep devices from reaching each other (like most university Wi-Fi), and phones get the secure page they need for audio.
+
+Install the two tools once (needs [Node.js](https://nodejs.org)):
+
+```powershell
+npm install -g http-server
+winget install --id Cloudflare.cloudflared     # macOS: brew install cloudflared
+```
+
+Then, in two terminals, from the repo's root folder (the one holding `index.html` and `ensemble/`):
+
+```powershell
+http-server -p 8000 -c-1                         # terminal 1: serve the site (-c-1: no caching)
+cloudflared tunnel --url http://localhost:8000   # terminal 2: prints https://<random>.trycloudflare.com
+```
+
+1. On the computer, open `https://<random>.trycloudflare.com/ensemble/conductor.html`. Use the tunnel's address, not `localhost`: the QR code points at the page's own address.
+2. Phones scan the QR code, or open `https://<random>.trycloudflare.com/ensemble/`.
+3. Keep both terminals running; Ctrl+C stops each. The tunnel gets a new address every time it starts.
+
+On Windows, if PowerShell says a command is not recognized, reopen the terminal (or VS Code) after installing; if it says running scripts is disabled, use `http-server.cmd` instead of `http-server`.
+
 ## Keeping phones awake
 
 A web page can't stay connected while the phone is locked: iOS suspends it within seconds (Android a little later), and the phone drops off the broker. So the phones must never lock, and the page works hard at that:
