@@ -173,7 +173,7 @@ function seat(S, buffer, smooth) {
 // SCORE MODE — the whole piece arrives in one message; this phone keeps the
 // layers of its own group and schedules every fade and drift change ahead.
 // ═══════════════════════════════════════════════════════════════════════════════
-let run = null; // { key, epoch, nodes, seatK, S, comp, group, rank }
+let run = null; // { key, epoch, nodes, seatK, S, comp, group, rank, chain, chainKey }
 let compiled = { json: null, comp: null };
 
 function compiledFor(S) {
@@ -214,6 +214,16 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
 
   if (run) fadeOutNodes(run.nodes, at, fade);
 
+  // The group's effect chain. Kept while the same piece plays in the same
+  // group (re-seats, drift overrides), so reverb and echo tails carry on.
+  const chainKey = [S.epoch, group, JSON.stringify(comp.effects[group] || [])].join('|');
+  let chain = run && run.chainKey === chainKey ? run.chain : null;
+  if (!chain) {
+    if (run) retireChain(ctx, run.chain, at + fade);
+    chain = buildChain(ctx, comp.effects[group], scoreBus);
+  }
+  scheduleChain(chain, st, at, c);
+
   const nodes = [];
   for (const L of comp.layers) {
     if (L.group !== group || L.stop <= st) continue;
@@ -227,7 +237,7 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     const src = ctx.createBufferSource(), gain = ctx.createGain();
     src.buffer = buffer;
     src.loop = L.loop !== false;
-    src.connect(gain).connect(scoreBus);
+    src.connect(gain).connect(chain.input);
 
     // Drift (inside the group) + spread (across groups) → playback rate,
     // following the curves exactly (steps and ramps)
@@ -247,7 +257,7 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     const tail = tailCurve(L, L.loop === false ? fileEndTime(L, drift, rank, buffer.duration, comp.spread) : 0);
     if (tail) {
       const tg = ctx.createGain();
-      gain.disconnect(); gain.connect(tg).connect(scoreBus);
+      gain.disconnect(); gain.connect(tg).connect(chain.input);
       tg.gain.setValueAtTime(valueAt(tail, t0), c0);
       scheduleCurve(tg.gain, tail.filter(p => p.t > t0), c, v => v);
     }
@@ -256,7 +266,7 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     if (isFinite(L.stop)) src.stop(c(L.stop) + 0.05);
     nodes.push({ src, gain, L, drift, buffer });
   }
-  run = { key, epoch: S.epoch, nodes, seatK: at - ts / 1000, S, comp, group, rank };
+  run = { key, epoch: S.epoch, nodes, seatK: at - ts / 1000, S, comp, group, rank, chain, chainKey };
 }
 
 function scheduleCurve(param, pts, c, map) {
@@ -284,6 +294,7 @@ function stopScore(tShared) {
   if (!run) return;
   const at = Math.max(ctxTimeFor(tShared || 0), ctx.currentTime + 0.005);
   fadeOutNodes(run.nodes, at, 0.02);
+  retireChain(ctx, run.chain, at);
   run = null;
 }
 
