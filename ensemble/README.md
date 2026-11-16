@@ -92,9 +92,9 @@ All three use the same score format, below.
 - **Open:** a GitHub link, a folder or ZIP on your computer, a built-in score, or a new piece.
 - **Piece:** title, number of groups, end time, credit line.
 - **Sounds:** add audio files; each gets a name the events use (renaming one renames it in the events).
-- **Effects:** each group's chain, in order; *Copy to every group* gives the others the same chain.
+- **Effect chains:** each group's effects, in order; *Copy to every group* gives the others the same chain. A filter's frequency is fixed or swept by an LFO.
 - **Events:** time, groups, and what happens (play, stop, ratio, spread, level). *Play once* makes a one-shot, with an optional *Fade out end*.
-- **Effect changes:** time, groups, the effect setting, its new value and an optional glide; saved as `effectEvents`, apart from the events.
+- **Effect changes:** time, groups, then one of those groups' effects and the setting to change, its new value and an optional glide; saved as `effectEvents`, apart from the events. Add the effect to a chain first.
 - **Timeline and Preview:** the conductor's timeline, updated as you type, with mistakes listed under it. **Preview** plays the ticked groups here, as several phones each, with drift and effects; press it again to hear changes.
 - **Save:** **Download ZIP** gives the piece's folder (`score.json` and its sounds); upload its contents to your repo. **Copy score.json** if you only changed the score.
 
