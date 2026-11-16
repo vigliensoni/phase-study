@@ -219,6 +219,7 @@ function compileEffects(score, groups, errors) {
   // score.effectEvents: [{ at, groups, set: "id.setting", to, glide }]
   for (const e of effectEvents(score, errors)) {
     if (e.set === undefined) { errors.push(`effect event ${e.i + 1}: say which setting to change ("set": "lowpass.frequency")`); continue; }
+    const noValue = e.to === undefined || e.to === '';
     const [id, ...rest] = String(e.set).split('.');
     // An LFO's rate is "id.frequency.rate" ("id.rate" in older pieces)
     let setting = rest.join('.');
@@ -230,6 +231,7 @@ function compileEffects(score, groups, errors) {
       const fx = out[g].find(x => x.id === id);
       if (!fx || !fx.curves[setting]) continue;
       found = true;
+      if (noValue) continue;
       const def = EFFECT_TYPES[fx.type];
       const range = setting === 'rate' ? def.lfo.rate : def.settings[setting];
       const v = effectNumber(e.to, range, `effect event ${e.i + 1} ${e.set}`, errors);
@@ -240,7 +242,7 @@ function compileEffects(score, groups, errors) {
       errors.push(`effect event ${e.i + 1}: ` + (lfoOwns
         ? `${id}'s frequency is swept by its LFO; change "${id}.frequency.rate" instead`
         : `no group here has an effect setting "${e.set}"`));
-    }
+    } else if (noValue) errors.push(`effect event ${e.i + 1}: give the new value ("to")`);
   }
   return out;
 }
