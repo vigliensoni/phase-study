@@ -102,7 +102,7 @@ function fromScore(score, locate) {
     const gs = key === 'all' || key === '*' ? letters.split('') : key.split('');
     for (const g of gs) {
       if (!letters.includes(g) || !Array.isArray(list)) continue;
-      d.effects[g] = [...(d.effects[g] || []), ...JSON.parse(JSON.stringify(list))];
+      d.effects[g] = [...(d.effects[g] || []), ...JSON.parse(JSON.stringify(list)).map(lfoUnderFrequency)];
     }
   }
   const withGroups = e => ({ ...e, at: String(e.at ?? '0:00'), groups: groupsString(e.groups) });
@@ -111,8 +111,18 @@ function fromScore(score, locate) {
   const events = Array.isArray(score.events) ? score.events : [];
   d.events = events.filter(e => e.set === undefined).map(withGroups);
   d.effectEvents = [...(Array.isArray(score.effectEvents) ? score.effectEvents : []), ...events.filter(e => e.set !== undefined)]
-    .map(withGroups);
+    .map(withGroups)
+    // An LFO's rate was "id.rate"; it's now "id.frequency.rate"
+    .map(e => ({ ...e, set: typeof e.set === 'string' ? e.set.replace(/^([^.]+)\.rate$/, '$1.frequency.rate') : e.set }));
   return d;
+}
+
+// Older pieces put a filter's "lfo" on the effect; it now goes under its
+// frequency: { frequency: { lfo: { … } } }
+function lfoUnderFrequency(fx) {
+  if (!fx || !fx.lfo) return fx;
+  const { lfo, ...rest } = fx;
+  return hasLfo(rest) ? rest : { ...rest, frequency: { lfo } };
 }
 
 const groupsString = g => g === undefined || g === 'all' || g === '*' ? 'all' : Array.isArray(g) ? g.join('') : String(g);
@@ -260,14 +270,17 @@ function renderEffects() {
 
 function effectRow(g, list, fx, i) {
   const def = EFFECT_TYPES[fx.type] || EFFECT_TYPES.lowpass;
-  const settingFields = (defs, obj, prefix = '') => Object.entries(defs).map(([k, [d, min, max]]) =>
-    field(prefix + k, numberInput(obj[k], d, v => { obj[k] = v; }, { min, max })));
+  const settingFields = (defs, obj, prefix = '', labels = {}) => Object.entries(defs).map(([k, [d, min, max]]) =>
+    field(labels[k] ?? prefix + k, numberInput(obj[k], d, v => { obj[k] = v; }, { min, max })));
   const fields = [];
   if (def === FILTER) {
-    fields.push(field('LFO', toggle(fx.lfo ? 'on' : 'off', !!fx.lfo,
-      on => { if (on) { fx.lfo = {}; delete fx.frequency; } else delete fx.lfo; render(); })));
-    if (fx.lfo) fields.push(...settingFields(FILTER.lfo, fx.lfo, 'lfo '), ...settingFields({ q: FILTER.settings.q }, fx));
-    else fields.push(...settingFields(FILTER.settings, fx));
+    // The frequency is a number, or swept by an LFO: { frequency: { lfo: { … } } }
+    const lfo = hasLfo(fx);
+    fields.push(field('Frequency', toggle(lfo ? 'LFO' : 'fixed', lfo,
+      on => { if (on) fx.frequency = { lfo: {} }; else delete fx.frequency; render(); })));
+    if (lfo) fields.push(...settingFields(FILTER.lfo, fx.frequency.lfo, 'LFO '));
+    else fields.push(...settingFields({ frequency: FILTER.settings.frequency }, fx, '', { frequency: 'Hz' }));
+    fields.push(...settingFields({ q: FILTER.settings.q }, fx));
   } else {
     fields.push(...settingFields(def.settings, fx), ...settingFields(def.fixed || {}, fx));
   }
@@ -283,17 +296,36 @@ function effectRow(g, list, fx, i) {
       onclick: () => { list.splice(i, 1); render(); } }));
 }
 
-// Every "id.setting" an effect event could change in groups `gs`
-function effectTargets(gs) {
-  const out = new Set();
+// A filter whose frequency is swept by an LFO
+const hasLfo = fx => !!(fx && fx.frequency && typeof fx.frequency === 'object');
+
+// The settings an effect change can move on `fx`: an LFO's rate stands in
+// for the frequency it sweeps ("frequency.rate")
+function effectSettings(fx) {
+  return Object.keys(EFFECT_TYPES[fx.type].settings).map(k => (k === 'frequency' && hasLfo(fx) ? 'frequency.rate' : k));
+}
+
+// A setting's [default, min, max] on `fx`
+function settingRange(fx, s) {
+  const def = EFFECT_TYPES[fx.type];
+  return s === 'frequency.rate' ? def.lfo.rate : def.settings[s];
+}
+const SETTING_LABEL = { frequency: 'frequency (Hz)', 'frequency.rate': 'LFO rate (Hz)', time: 'time (s)' };
+
+// The effects in groups `gs`, one per id: [{ id, type, groups, settings, all }]
+// (`all`: that effect in each of those groups)
+function effectsIn(gs) {
+  const byId = new Map();
   for (const g of gs) for (const fx of doc.effects[g] || []) {
-    const def = EFFECT_TYPES[fx.type];
-    if (!def) continue;
+    if (!EFFECT_TYPES[fx.type]) continue;
     const id = fx.id || fx.type;
-    for (const k of Object.keys(def.settings)) if (!(fx.lfo && k === 'frequency')) out.add(`${id}.${k}`);
-    if (fx.lfo) out.add(`${id}.rate`);
+    if (!byId.has(id)) byId.set(id, { id, type: fx.type, groups: [], settings: [], all: [] });
+    const x = byId.get(id);
+    x.groups.push(g);
+    x.all.push(fx);
+    for (const s of effectSettings(fx)) if (!x.settings.includes(s)) x.settings.push(s);
   }
-  return [...out];
+  return [...byId.values()];
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -306,8 +338,6 @@ const ACTIONS = {
   spread: { fields: [['spread', 'num', 'Spread'], ['glide', 'num', 'Glide']], start: { spread: 1.005 }, allGroups: true },
   level:  { fields: [['level', 'num', 'Level'], ['fade', 'num', 'Fade'], ['sound', 'soundOpt', 'Only sound']], start: { level: 0.5, fade: 2 } },
 };
-// An effect event's fields ("set" stays "" until a setting is chosen)
-const EFFECT_EVENT_FIELDS = [['set', 'target', 'Effect setting'], ['to', 'num', 'To'], ['glide', 'num', 'Glide']];
 const FIELD_HINT = { ratio: '1 = none', fade: 's', glide: 's', level: '0–1', spread: '1 = none', to: '', fadeOut: 's' };
 
 // Which action an event is (same precedence as compileScore)
@@ -329,7 +359,8 @@ function addEvent() {
 
 function addEffectEvent() {
   const last = doc.effectEvents[doc.effectEvents.length - 1];
-  doc.effectEvents.push({ at: last ? last.at : '0:00', groups: 'all', set: effectTargets(groupLetters())[0] ?? '' });
+  // "set" is filled in with the first effect, once the groups have one
+  doc.effectEvents.push({ at: last ? last.at : '0:00', groups: 'all', set: '' });
   renderEvents();
   changed();
 }
@@ -379,12 +410,67 @@ function eventField(e, [key, kind, label], own = key === actionOf(e)) {
   if (kind === 'sound') return field(label, select(soundNames(), soundNames().length ? undefined : '(add a sound first)'));
   if (kind === 'soundAll') return field(label, select(['all', ...soundNames()]));
   if (kind === 'soundOpt') return field(label, select(soundNames(), 'every sound'));
-  if (kind === 'target') {
-    const gs = e.groups === 'all' ? groupLetters() : e.groups.split('');
-    const opts = effectTargets(gs);
-    if (e[key] && !opts.includes(e[key])) opts.unshift(e[key]); // keep a missing one visible (it shows as an error)
-    return field(label, select(opts, opts.length ? '' : '(add an effect to these groups)'));
-  }
+}
+
+// One effect change: pick an effect in its groups, then one of its settings
+function effectEventRow(e, i) {
+  const gs = e.groups === 'all' ? groupLetters() : e.groups.split('');
+  const fxs = effectsIn(gs);
+  if (!e.set && fxs.length) e.set = `${fxs[0].id}.${fxs[0].settings[0]}`;
+  const [id, ...rest] = String(e.set || '').split('.');
+  const setting = rest.join('.');
+  const cur = fxs.find(x => x.id === id);
+  const head = [
+    el('span', { class: 'ed-num', textContent: i + 1 }),
+    field('At', el('input', { type: 'text', value: e.at, class: 'from-ctrl', placeholder: 'm:ss',
+      oninput: ev => { e.at = ev.target.value.trim(); changed(); } })),
+    field('Groups', groupToggles(e, () => { renderEvents(); changed(); })),
+  ];
+  const redo = () => { renderEvents(); changed(); };
+
+  // No effects to change yet: say where they're added
+  if (!fxs.length) return el('div', { class: 'ed-event' }, ...head,
+    el('span', { class: 'hint ed-empty' },
+      (gs.length === groupLetters().length ? 'No group has effects yet. ' : `${gs.join(', ')} ${gs.length > 1 ? 'have' : 'has'} no effects yet. `),
+      el('button', { class: 'ed-mini', type: 'button', textContent: 'Add one under Effect chains ↑',
+        onclick: () => $('effectsSec').scrollIntoView({ behavior: 'smooth', block: 'start' }) })),
+    rowActions(doc.effectEvents, i));
+
+  // A choice no longer there (renamed, removed, other groups) stays visible; it shows as an error
+  const opt = (value, text, selected) => el('option', { value, textContent: text, selected });
+  const fxLabel = x => `${x.id}${x.id !== x.type ? ` · ${x.type}` : ''} (${x.groups.join(', ')})`;
+  const effectSel = el('select', { class: 'score-sel', onchange: ev => {
+      const x = fxs.find(f => f.id === ev.target.value);
+      e.set = `${x.id}.${x.settings.includes(setting) ? setting : x.settings[0]}`;
+      redo();
+    } },
+    ...(cur ? [] : [opt(id, `${id || '?'} (not in these groups)`, true)]),
+    ...fxs.map(x => opt(x.id, fxLabel(x), x === cur)));
+  const settings = cur ? [...cur.settings] : [];
+  if (setting && !settings.includes(setting)) settings.unshift(setting);
+  const settingSel = el('select', { class: 'score-sel', onchange: ev => { e.set = `${id}.${ev.target.value}`; redo(); } },
+    ...settings.map(s => opt(s, (SETTING_LABEL[s] ?? s) + (cur && cur.settings.includes(s) ? '' : ' (not here)'), s === setting)));
+
+  // The setting's range, and its value just before this change (from the
+  // first group that has it)
+  const g = cur && cur.groups.find((_, n) => effectSettings(cur.all[n]).includes(setting));
+  const range = g ? settingRange(cur.all[cur.groups.indexOf(g)], setting) : null;
+  const before = g ? valueBefore(g, id, setting, parseTime(e.at)) : null;
+  const toLabel = before === null ? 'To' : `To · from ${+before.toFixed(2)}`;
+  return el('div', { class: 'ed-event' }, ...head,
+    field('Effect', effectSel),
+    field('Setting', settingSel),
+    field(toLabel, numberInput(e.to, range ? `${range[1]}–${range[2]}` : '', v => { e.to = v; },
+      range ? { min: range[1], max: range[2], title: `${range[1]}–${range[2]}` } : {})),
+    field('Glide', numberInput(e.glide, 's', v => { e.glide = v; })),
+    rowActions(doc.effectEvents, i));
+}
+
+// What a setting is just before `t`, with the changes before it applied
+function valueBefore(g, id, setting, t) {
+  const fx = ((comp.effects || {})[g] || []).find(x => x.id === id);
+  const curve = fx && fx.curves[setting === 'frequency.rate' ? 'rate' : setting];
+  return curve && isFinite(t) ? valueAt(curve, t - 1e-6) : null; // before the first point: the chain's own value
 }
 
 // Copy and Remove for a row of `list`, at the right end of the row
@@ -398,13 +484,8 @@ function rowActions(list, i) {
 
 // Renders both lists: the events and the effect events
 function renderEvents() {
-  $('effectEvents').replaceChildren(...doc.effectEvents.map((e, i) => el('div', { class: 'ed-event' },
-    el('span', { class: 'ed-num', textContent: i + 1 }),
-    field('At', el('input', { type: 'text', value: e.at, class: 'from-ctrl', placeholder: 'm:ss',
-      oninput: ev => { e.at = ev.target.value.trim(); changed(); } })),
-    field('Groups', groupToggles(e, () => { renderEvents(); changed(); })),
-    ...EFFECT_EVENT_FIELDS.map(f => eventField(e, f, f[0] === 'set')),
-    rowActions(doc.effectEvents, i))));
+  comp = compileScore(toScore()); // the effect changes show values from it
+  $('effectEvents').replaceChildren(...doc.effectEvents.map(effectEventRow));
 
   $('events').replaceChildren(...doc.events.map((e, i) => {
     const action = actionOf(e);

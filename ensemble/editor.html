@@ -66,9 +66,10 @@
   </section>
 
   <!-- Effects -->
-  <section class="ed-sec">
-    <div class="ctrl-title">Effects · each group's chain, in order</div>
+  <section class="ed-sec" id="effectsSec">
+    <div class="ctrl-title">Effect chains · each group's effects, in order</div>
     <div id="effects" class="ed-groups"></div>
+    <p class="hint">A filter's frequency is fixed, or swept by an <em>LFO</em>: <em>rate</em> times a second, between <em>min</em> and <em>max</em> Hz.</p>
   </section>
 
   <!-- Events -->
@@ -82,11 +83,11 @@
 
   <!-- Effect events -->
   <section class="ed-sec">
-    <div class="ctrl-title">Effect changes · settings of the effects above, over the piece</div>
+    <div class="ctrl-title">Effect changes · move a setting of the chains above, during the piece</div>
     <div id="effectEvents"></div>
     <button class="btn btn-reset ed-btn" onclick="addEffectEvent()">+ Add effect change</button>
     <button class="btn btn-reset ed-btn" onclick="sortEffectEvents()">Sort by time</button>
-    <p class="hint">Changes an effect setting in the chosen groups, at once or with a glide. Times in seconds.</p>
+    <p class="hint">Choose the groups, then one of their effects and a setting. Glides are in seconds.</p>
   </section>
 
   <!-- Timeline + preview -->

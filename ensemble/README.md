@@ -83,9 +83,9 @@ All three use the same score format, below.
 - **Open:** a GitHub link, a folder or ZIP on your computer, a built-in score, or a new piece.
 - **Piece:** title, number of groups, end time.
 - **Sounds:** add audio files; each gets a name the events use (renaming one renames it in the events).
-- **Effects:** each group's chain, in order; *Copy to every group* gives the others the same chain.
+- **Effect chains:** each group's effects, in order; *Copy to every group* gives the others the same chain. A filter's frequency is fixed or swept by an LFO.
 - **Events:** time, groups, and what happens (play, stop, ratio, spread, level). *Play once* makes a one-shot, with an optional *Fade out end*.
-- **Effect changes:** time, groups, the effect setting, its new value and an optional glide; saved as `effectEvents`, apart from the events.
+- **Effect changes:** time, groups, then one of those groups' effects and the setting to change, its new value and an optional glide; saved as `effectEvents`, apart from the events. Add the effect to a chain first.
 - **Timeline and Preview:** the conductor's timeline, updated as you type, with mistakes listed under it. **Preview** plays the ticked groups here, as several phones each, with drift and effects; press it again to hear changes. *Preview phones per group* is only for the preview: in the room any number of phones can join, and the more phones in a group, the wider its drift spreads (phone *k* drifts *k* − 1 times the ratio). Preview with about as many as you expect per group.
 - **Save:** **Download ZIP** gives the piece's folder (`score.json` and its sounds); upload its contents to your repo. **Copy score.json** if you only changed the score.
 
@@ -164,7 +164,7 @@ Each group can run its sounds through a chain of effects, in order (`"BC"` gives
 ```json
 "effects": {
   "A":  [{ "type": "lowpass", "frequency": 300, "q": 4 }],
-  "B":  [{ "type": "bandpass", "lfo": { "rate": 0.25, "min": 300, "max": 3000 } }],
+  "B":  [{ "type": "bandpass", "frequency": { "lfo": { "rate": 0.25, "min": 300, "max": 3000 } } }],
   "CD": [{ "type": "delay", "time": 0.375, "feedback": 0.5, "mix": 0.4 },
          { "type": "reverb", "decay": 6, "mix": 0.2 }]
 }
@@ -183,7 +183,7 @@ Each has `at` and `groups` like an event, `set` (the setting), `to` (the new val
 
 | Type | Settings (default, range) | Fixed (set once) |
 |---|---|---|
-| `lowpass` `highpass` `bandpass` | `frequency` (1000 Hz, 20–20000), `q` (1, 0.1–30) | `lfo: { rate: 0.2, min: 200, max: 2000 }` sweeps the cutoff; `rate` then replaces `frequency` as a setting |
+| `lowpass` `highpass` `bandpass` | `frequency` (1000 Hz, 20–20000), `q` (1, 0.1–30) | `frequency: { lfo: { rate: 0.2, min: 200, max: 2000 } }` sweeps the cutoff instead; its setting is then `frequency.rate` |
 | `reverb` | `mix` (0.3, 0–1) | `decay` (4 s, 0.1–20), `preDelay` (0.01 s, 0–1) |
 | `delay` | `time` (0.25 s, 0.01–5), `feedback` (0.4, 0–0.95), `mix` (0.3, 0–1) | |
 
