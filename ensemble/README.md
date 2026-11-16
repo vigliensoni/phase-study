@@ -122,7 +122,7 @@ Each group can run its sounds through a chain of effects, in order. List them pe
 ```js
 effects: {
   A:  [{ type: 'lowpass', frequency: 300, q: 4 }],
-  B:  [{ type: 'bandpass', lfo: { rate: 0.25, min: 300, max: 3000 } }],
+  B:  [{ type: 'bandpass', frequency: { lfo: { rate: 0.25, min: 300, max: 3000 } } }],
   CD: [{ type: 'delay', time: 0.375, feedback: 0.5, mix: 0.4 },
        { type: 'reverb', decay: 6, mix: 0.2 }],
 },
@@ -141,7 +141,7 @@ Each has `at` and `groups` like an event, `set` (the setting), `to` (the new val
 
 | Type | Settings (default, range) | Fixed (set once) |
 |---|---|---|
-| `lowpass` `highpass` `bandpass` | `frequency` (1000 Hz, 20–20000), `q` (1, 0.1–30) | `lfo`: `{ rate: 0.2, min: 200, max: 2000 }` sweeps the cutoff; then `rate` replaces `frequency` as a setting |
+| `lowpass` `highpass` `bandpass` | `frequency` (1000 Hz, 20–20000), `q` (1, 0.1–30) | `frequency: { lfo: { rate: 0.2, min: 200, max: 2000 } }` sweeps the cutoff instead; its setting is then `frequency.rate` |
 | `reverb` | `mix` (0.3, 0–1) | `decay` (4 s, 0.1–20), `preDelay` (0.01 s, 0–1) |
 | `delay` | `time` (0.25 s, 0.01–5), `feedback` (0.4, 0–0.95), `mix` (0.3, 0–1) | |
 
