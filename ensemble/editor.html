@@ -70,13 +70,6 @@
     <p class="hint">Each sound gets a name (used in the events below) and is saved as <code>audio/&lt;file&gt;</code> in the piece's folder. Sounds loop, unless the event that plays them ticks <em>Play once</em>. Prefer <code>.mp3</code> or <code>.ogg</code>, and keep each file under 100&nbsp;MB.</p>
   </section>
 
-  <!-- Effects -->
-  <section class="ed-sec" id="effectsSec">
-    <div class="ctrl-title">Effect chains · each group's effects, in order</div>
-    <div id="effects" class="ed-groups"></div>
-    <p class="hint">A filter's frequency is fixed, or swept by an <em>LFO</em>: <em>rate</em> times a second, between <em>min</em> and <em>max</em> Hz.</p>
-  </section>
-
   <!-- Events -->
   <section class="ed-sec">
     <div class="ctrl-title">Events</div>
@@ -84,6 +77,13 @@
     <button class="btn btn-reset ed-btn" onclick="addEvent()">+ Add event</button>
     <button class="btn btn-reset ed-btn" onclick="sortEvents()">Sort by time</button>
     <p class="hint"><em>Play</em> starts a sound in the chosen groups (<em>Play once</em> plays the file once instead of looping; <em>Fade out end</em> fades over its last seconds), <em>stop</em> fades it out. <em>Ratio</em> drifts the phones of a group apart; <em>spread</em> drifts the groups apart (the whole piece). <em>Level</em> changes loudness. Fades and glides are in seconds.</p>
+  </section>
+
+  <!-- Effects -->
+  <section class="ed-sec" id="effectsSec">
+    <div class="ctrl-title">Effect chains · each group's effects, in order</div>
+    <div id="effects" class="ed-groups"></div>
+    <p class="hint">A filter's frequency is fixed, or swept by an <em>LFO</em>: <em>rate</em> times a second, between <em>min</em> and <em>max</em> Hz.</p>
   </section>
 
   <!-- Effect events -->
