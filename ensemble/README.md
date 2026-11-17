@@ -170,7 +170,7 @@ Each group can run its sounds through a chain of effects, in order (`"BC"` gives
 }
 ```
 
-Then change any setting during the piece, instantly or with a `glide`. Effect changes go in their own list, `effectEvents`, next to `events`, so the sound events stay easy to read:
+`effects` sets up each chain and its starting values; `effectEvents` then change those settings during the piece, instantly or with a `glide`. They're a list of their own, next to `events`, so the sound events stay easy to read:
 
 ```json
 "effectEvents": [
