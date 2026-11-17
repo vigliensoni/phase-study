@@ -65,13 +65,6 @@
     <p class="hint">Events use these names. Prefer <code>.mp3</code> or <code>.ogg</code>, under 100&nbsp;MB each.</p>
   </section>
 
-  <!-- Effects -->
-  <section class="ed-sec" id="effectsSec">
-    <div class="ctrl-title">Effect chains · each group's effects, in order</div>
-    <div id="effects" class="ed-groups"></div>
-    <p class="hint">A filter's frequency is fixed, or swept by an <em>LFO</em>: <em>rate</em> times a second, between <em>min</em> and <em>max</em> Hz.</p>
-  </section>
-
   <!-- Events -->
   <section class="ed-sec">
     <div class="ctrl-title">Events</div>
@@ -79,6 +72,13 @@
     <button class="btn btn-reset ed-btn" onclick="addEvent()">+ Add event</button>
     <button class="btn btn-reset ed-btn" onclick="sortEvents()">Sort by time</button>
     <p class="hint"><em>Ratio</em> drifts the phones in a group apart; <em>spread</em> drifts the groups apart. Times in seconds.</p>
+  </section>
+
+  <!-- Effects -->
+  <section class="ed-sec" id="effectsSec">
+    <div class="ctrl-title">Effect chains · each group's effects, in order</div>
+    <div id="effects" class="ed-groups"></div>
+    <p class="hint">A filter's frequency is fixed, or swept by an <em>LFO</em>: <em>rate</em> times a second, between <em>min</em> and <em>max</em> Hz.</p>
   </section>
 
   <!-- Effect events -->
