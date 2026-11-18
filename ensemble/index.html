@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0a">
-<title>IT'S GONNA RAIN — Ensemble</title>
+<title>Performer</title>
 <script>
   try { if (localStorage.getItem('theme') !== 'light') document.documentElement.dataset.theme = 'dark'; } catch (e) { document.documentElement.dataset.theme = 'dark'; }
 </script>
@@ -18,7 +18,7 @@
 
   <div class="perf-top">
     <div>
-      <div class="label">It's Gonna Rain · Ensemble</div>
+      <div class="label">Performer</div>
       <div class="label" style="margin:0">Room <span id="roomTxt" style="color:var(--fg)">—</span></div>
     </div>
     <button class="theme-btn" id="themeBtn" onclick="themeChanged()">◐</button>
@@ -27,20 +27,13 @@
   <!-- Before joining -->
   <div class="join-screen">
     <button class="btn btn-play" id="joinBtn" onclick="join()">▶ &nbsp;Join</button>
-    <p class="hint">
-      Turn the volume up and the silent switch off. Keep this page open with the screen on.
-      No Bluetooth speakers: they add a quarter of a second of delay.
-    </p>
+    <p class="hint">Volume up, silent switch off, no Bluetooth speakers. Keep this page open with the screen on.</p>
   </div>
 
   <!-- After joining -->
   <div class="only-joined" style="flex-direction:column; gap:0.8rem">
-    <div class="label" style="text-align:center; margin:0" id="subTxt">Voice</div>
-    <div class="voice-big" id="voiceBig">1</div>
-    <div class="voice-pick free-only">
-      <button onclick="nudgeVoice(-1)">−</button>
-      <button onclick="nudgeVoice(1)">+</button>
-    </div>
+    <div class="label" style="text-align:center; margin:0" id="subTxt">Group</div>
+    <div class="voice-big" id="voiceBig">·</div>
     <div class="status-line" id="statusTxt">CONNECTING…</div>
     <div class="stats-line" id="nowTxt" style="color:var(--fg)"></div>
     <div class="score-credit" id="creditTxt"></div>
@@ -58,7 +51,7 @@
     <div class="ctrl-row only-joined" style="flex-direction:column">
       <div class="ctrl-hd"><span class="cn">Latency trim</span><span class="cv" id="trimVal">0 ms</span></div>
       <input type="range" class="r2" id="trimCtrl" min="-100" max="250" step="1" value="0" oninput="updateTrim()">
-      <p class="hint">If this phone sounds late against the others, move right.</p>
+      <p class="hint">Sounds late against the others? Move right.</p>
     </div>
   </div>
 

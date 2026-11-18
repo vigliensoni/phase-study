@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Roboto+Condensed:wght@100;300&display=swap');
 
+/* Shared by every page: theme colours, header, controls, buttons */
+
 /* Light theme (default) */
 :root {
   --bg: #f5f3ee;
@@ -85,94 +87,6 @@ header {
 }
 .theme-btn:hover { border-color: var(--fg); color: var(--fg); }
 
-.body {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  flex: 1;
-}
-
-.left {
-  border-right: 1px solid var(--dim);
-  display: flex;
-  flex-direction: column;
-}
-
-/* ── Sections ── */
-.section-label {
-  font-size: 0.81rem;
-  letter-spacing: 0.25em;
-  color: var(--mid);
-  text-transform: uppercase;
-  margin-bottom: 0.9rem;
-}
-
-/* ── Sample panel ── */
-.sample-section {
-  padding: 1.2rem 1.5rem;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.drop-zone {
-  border: 1px dashed var(--dim);
-  padding: 2rem 1rem;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  position: relative;
-}
-
-.drop-zone:hover, .drop-zone.dragover {
-  border-color: var(--accent);
-  background: var(--surface);
-}
-
-.drop-zone input[type=file] {
-  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-}
-
-.drop-zone-text {
-  font-size: 0.88rem; letter-spacing: 0.15em; color: var(--mid); text-transform: uppercase;
-  pointer-events: none;
-}
-
-.drop-zone-text strong { display: block; color: var(--fg); margin-bottom: 0.3rem; font-size: 1.05rem; }
-
-.sample-info {
-  display: none;
-  font-size: 0.84rem; color: var(--mid); letter-spacing: 0.1em;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--dim);
-  background: var(--surface);
-}
-.sample-info.visible { display: block; }
-.sample-info span { color: var(--fg); }
-
-/* Waveform thumbnail */
-#sampleWaveThumb {
-  display: block; width: 100%; height: 48px;
-  border: 1px solid var(--dim); background: var(--well);
-}
-
-.playhead-row {
-  display: flex; flex-direction: column; gap: 0.4rem; flex: 1;
-}
-
-/* Circle fills whatever space is left in the column */
-.circle-wrap { flex: 1; position: relative; min-height: 320px; }
-#playheadCircle { position: absolute; inset: 0; width: 100%; height: 100%; }
-
-.playhead-label {
-  font-size: 0.73rem; color: var(--mid); letter-spacing: 0.12em; text-transform: uppercase;
-}
-
-/* ── Right panel ── */
-.right {
-  padding: 1.2rem 1rem; display: flex; flex-direction: column; gap: 1.4rem;
-}
-
 .ctrl-title {
   font-size: 0.77rem; letter-spacing: 0.25em; color: var(--dim);
   text-transform: uppercase; border-bottom: 1px solid var(--dim);
@@ -207,30 +121,11 @@ input[type=range].r2::-webkit-slider-thumb { background: var(--c2); }
 }
 .btn-play  { border-color: var(--accent); color: var(--accent); }
 .btn-play:hover, .btn-play.on { background: var(--accent); color: var(--on-accent); }
-.btn-phase { border-color: var(--cp); color: var(--cp); margin-top: 0.5rem; }
-.btn-phase:hover { background: var(--cp); color: var(--on-accent); }
-.btn-phase.paused { background: var(--cp); color: var(--on-accent); }
-.btn-phase:disabled { border-color: var(--dim); color: var(--dim); cursor: default; pointer-events: none; }
 .btn-reset { border-color: var(--dim); color: var(--mid); margin-top: 0.5rem; }
 .btn-reset:hover { border-color: var(--fg); color: var(--fg); }
-
-.sound-btns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem; }
-.sound-btn {
-  font-family: 'Space Mono', monospace; font-size: 0.96rem;
-  padding: 0.55rem 0; cursor: pointer;
-  border: 1px solid var(--dim); background: none; color: var(--mid);
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-.sound-btn:hover { border-color: var(--fg); color: var(--fg); }
-.sound-btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 .status {
   font-size: 0.77rem; color: var(--mid); letter-spacing: 0.15em;
   text-align: center; margin-top: 0.35rem;
 }
 .status span { color: var(--accent); }
-
-@media (max-width: 640px) {
-  .body { grid-template-columns: 1fr; }
-  .left { border-right: none; border-bottom: 1px solid var(--dim); }
-}

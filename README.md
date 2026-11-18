@@ -1,57 +1,73 @@
 # Phase Study
 
-An interactive browser-based exploration of Steve Reich's phasing technique, inspired by *It's Gonna Rain* (1965).
+Phase music for many phones, after Steve Reich's *It's Gonna Rain* (1965). Reich found that two tape loops of the same recording, on slightly out-of-sync machines, drift apart and realign in hypnotic patterns. Here, a conductor plays a timed score across groups of phones in a room, and the drifting happens between them.
 
-## Concept
+Everything is in [`ensemble/`](ensemble/README.md), which explains how to use it: the conductor, the *Performer* page for phones, and a score editor.
 
-*It's Gonna Rain* is a landmark work of early minimalism. Reich recorded a street preacher in San Francisco and discovered — by accident — that two tape loops of the same recording, played simultaneously on slightly out-of-sync machines, drifted apart and realigned in ways that produced hypnotic rhythmic and harmonic interference patterns. This became the defining technique of **phase music**: two identical loops, one running marginally faster than the other, continuously shifting in and out of alignment.
+Live version: https://vigliensoni.github.io/phase-study/ (opens the conductor).
 
-This study makes that process visible and audible in real time: any audio file you drop in is looped in both channels simultaneously, with Voice II playing at a slightly higher playback rate.
+It's a static site with no build step: serve the repo folder over http (see [Running it locally](#running-it-locally-http-server--cloudflare-tunnel) below). The site root redirects to `ensemble/conductor.html`; shared styles are in `style.css`, sounds in `assets/`.
 
-## Files
+## Running it locally (http-server + Cloudflare tunnel)
 
+To test with phones, serve the repo from your computer with `http-server` and open a free Cloudflare *quick tunnel* to it. The tunnel gives you an `https://` address that any phone can reach, even on networks that keep devices apart (like most university Wi-Fi). You don't need a Cloudflare account.
+
+### 1. Install (once)
+
+**Windows** (PowerShell):
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS          # Node.js + npm
+winget install --id Cloudflare.cloudflared     # Cloudflare tunnel
+# close and reopen the terminal (or VS Code) so the new commands are found
+npm install -g http-server
 ```
-index.html         Main HTML document
-style.css          All visual styling
-script.js          Audio engine, UI logic, and visualization
-```
 
-## Features
-
-### Two voices, one loop
-Both voices play the same sample. Voice II runs at a ratio slightly above 1.0, causing it to drift ahead of Voice I over time. The offset accumulates until the voices realign — completing a full phase cycle.
-
-### Audio sample
-- Pick one of five built-in sounds (`assets/demo/1.wav`–`5.wav`) from the sidebar, or drop or browse any WAV / AIFF / MP3 / OGG file (AIFF is decoded in JavaScript, so it works in every browser)
-- Waveform thumbnail, plus a circular playhead display: the loop is one turn around a ring, with one hand per voice and the phase offset shown as an arc between them
-- Voice II's position is tracked across speed changes, so pausing phasing holds the current offset
-
-### Controls
-| Control | Description |
-|---|---|
-| Start / Stop | Launch or halt both voices |
-| Pause phasing | Freeze Voice II at its current offset |
-| Sync voices | Reset both voices to the same position |
-| Speed ratio | Voice II playback rate (1.000–1.030) |
-| Volume | Master output gain |
-
-## Usage
-
-Live version: https://vigliensoni.github.io/phase-study/
-
-It's a static site with no build step or dependencies: `index.html` loads `style.css` and `script.js` from the same directory. To run it locally, open `index.html` in any modern browser. The built-in sounds need the folder to be served over http, and some browsers also block decoding dropped files on a `file://` page, so serving it is the most reliable option:
+**macOS** (Terminal, needs [Homebrew](https://brew.sh)):
 
 ```bash
-python3 -m http.server   # then open http://localhost:8000
+brew install node            # Node.js + npm
+brew install cloudflared     # Cloudflare tunnel
+npm install -g http-server
 ```
 
-Audio files are decoded in the browser and never uploaded anywhere.
+Check that everything installed:
+
+```bash
+node --version
+http-server --version
+cloudflared --version
+```
+
+### 2. Run
+
+From the repo's root folder (the one holding `style.css` and `ensemble/`), open two terminals:
+
+```bash
+# terminal 1: serve the site on port 8000, with caching off
+http-server -p 8000 -c-1
+
+# terminal 2: open the tunnel; it prints https://<random>.trycloudflare.com
+cloudflared tunnel --url http://localhost:8000
+```
+
+Then open `https://<random>.trycloudflare.com/ensemble/conductor.html` on the computer. Use the tunnel's address, not `localhost`, because the conductor's QR code points at the page's own address. Phones join by scanning that QR code.
+
+Keep both terminals running while you perform (Ctrl+C stops them). The tunnel address changes every time you start `cloudflared`.
+
+### Troubleshooting
+
+- **Windows: "not recognized as the name of a cmdlet"**: reopen the terminal (or VS Code) after installing, so it picks up the new PATH.
+- **Windows: "running scripts is disabled on this system"**: use `http-server.cmd -p 8000 -c-1` instead, or run the commands from Command Prompt.
+- **macOS: `npm install -g` fails with a permissions error**: you probably installed Node without Homebrew; reinstall it with `brew install node`, or use `npx http-server -p 8000 -c-1` instead.
+- **Port 8000 already in use**: pick another port (e.g. `-p 8080`) and use the same one in the `cloudflared` command.
+- **No global install wanted**: this repo's `package.json` lists `http-server`, so `npm install` then `npx http-server -p 8000 -c-1` works too.
 
 ## Sound credits
 
 The sounds in `assets/demo/` were produced by Gabriel Vigliensoni.
 
-The PTC compositions (scores titled *PTC …*, using the sounds in `assets/PTC/`): *The work has been produced from sounds that were originally generated by the instruments of Productions Totem Contemporain.*
+The PTC compositions (scores titled *PTC …*, using the sounds in `assets/PTC/`): *The work has been produced with sounds that were originally generated by the instruments of Productions Totem Contemporain.*
 
 ## References
 
