@@ -14,7 +14,7 @@ There are three pages:
 2. Performers scan it and tap **Join** (browsers only start audio after a tap).
 3. Press **Calibrate levels** and match the phones' volumes (see *Calibrating levels*).
 4. Pick a score from the menu, or paste a GitHub link to a piece and press **Load** (see *Pieces from a GitHub link*).
-5. Press **Start**. The piece starts 1.5 s later, on every phone at once.
+5. Press **Start** (or Space, unless you're typing in a field). The piece starts 1.5 s later, on every phone at once.
 
 The conductor's controls:
 
@@ -201,6 +201,7 @@ Give every PTC score (titled *PTC …*, using `assets/PTC/`) `credit: PTC_CREDIT
 - **Phones can't connect:** some campus guest Wi-Fi blocks WebSockets. Use a phone hotspot or cellular data.
 - **A GitHub piece won't load:** the repo must be public, the link must point at the folder holding `score.json`, and a fresh push can take 5 minutes to appear.
 - **Monitor on the laptop:** open the conductor's join link in another tab and join, like a phone.
+- **Rehearse without phones:** the desktop simulator ([`../desktop`](../desktop/README.md)) runs the conductor and any number of simulated phones, each on its own speaker.
 
 ## How it works
 
@@ -263,6 +264,7 @@ playback.js      Schedules one phone's sounds (phones and the editor's preview)
 timeline.js      Draws a score's timeline (conductor and editor)
 performer.js     Phone: clock sync, scheduling, drift correction, audio
 conductor.js     Conductor: shared clock, state of the piece, roster, controls
+shortcuts.js     Conductor: Space starts and stops
 editor.js        Editor: form, preview, open and save
 ensemble.css     Layout (on top of ../style.css)
 keepawake.mp4    Silent video that keeps screens on where Wake Lock isn't available
