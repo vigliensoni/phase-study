@@ -3,70 +3,115 @@
 <head>
 <meta charset="UTF-8">
 <!-- The panel only runs its own files: no inline scripts, nothing from the network -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
-<title>Simulator</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<title>Phase Study Simulator</title>
 <link rel="stylesheet" href="panel.css">
 </head>
 <body>
 
-<header>
-  <div>
-    <h1>Simulator</h1>
-    <div class="label">Room <span id="room">—</span> · <span id="net">loading…</span></div>
+<!-- ── Toolbar: name, transport, backend, conductor ─────────────────────────── -->
+<header class="toolbar glass">
+  <div class="brand">
+    <span class="brand-name">Phase Study</span>
+    <span class="brand-sub">Simulator</span>
+  </div>
+
+  <div class="transport">
+    <button class="round play" id="play" title="Play / pause all clients (Space)" aria-label="Play">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M8 5.5v13l10.5-6.5z"/><path class="i-pause" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+    </button>
+    <button class="round" id="stop" title="Stop, back to the start" aria-label="Stop">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></svg>
+    </button>
+    <div class="clock">
+      <div class="time"><span id="time">0:00.0</span><span class="end" id="end"> / 0:00</span></div>
+      <div class="piece"><span id="cstatus">—</span> · <span id="piece">loading…</span></div>
+    </div>
+  </div>
+
+  <div class="tools">
+    <button class="pill" id="backend" title="Backend and connection settings">
+      <span class="dot" id="backendDot"></span><span id="backendTxt">Backend…</span>
+    </button>
+    <span class="pill">Room <b id="room">—</b></span>
+    <button class="pill" id="toggleConductor" aria-pressed="true" title="Show or hide the conductor">Conductor</button>
   </div>
 </header>
 
-<!-- Transport: the conductor's Start / Stop, also on the space bar -->
-<section>
-  <button class="btn btn-play" id="play" title="Space">▶ Start</button>
-  <div class="status"><span id="cstatus">—</span><span id="piece"></span></div>
-  <p class="hint">Space starts and stops, here or on the conductor (except while typing in a field).</p>
-</section>
+<div class="main">
+  <!-- ── Workspace: clients, speakers, grid ─────────────────────────────────── -->
+  <main class="workspace" id="workspace">
 
-<!-- How many phones -->
-<section>
-  <div class="title">Phones</div>
-  <div class="row">
-    <button class="small" id="fewer" aria-label="One phone fewer">−</button>
-    <input type="number" id="count" min="0" max="40" value="0" aria-label="Number of phones">
-    <button class="small" id="more" aria-label="One phone more">+</button>
-    <span class="hint" id="joinedTxt"></span>
-  </div>
-  <p class="hint">Each phone is the real performer page, joined to this room on its own, with its own clock sync and speaker.</p>
-</section>
+    <div class="bar">
+      <div class="group">
+        <span class="bar-label">Clients</span>
+        <div class="stepper">
+          <button id="fewer" aria-label="Remove the last client" title="Remove the last client">−</button>
+          <input type="number" id="count" min="0" max="40" value="0" aria-label="Number of clients" title="Number of clients: type a number and press Enter">
+          <button id="more" aria-label="Add a client" title="Add a client">+</button>
+        </div>
+        <span class="hint" id="joinedTxt"></span>
+      </div>
 
-<!-- The room: each speaker, where it is, and which phones play through it -->
-<section>
-  <div class="title">Speakers</div>
-  <div id="speakers"></div>
-  <div class="row wrap">
-    <button class="small wide" id="spread" title="Deal the phones over the ticked speakers: 1 → first, 2 → second…">Spread phones</button>
-    <button class="small wide" id="byGroup" title="Score mode: every phone of a group on the same speaker">One group per speaker</button>
-    <button class="small wide" id="allDefault">All to default</button>
-    <button class="small wide" id="identify" title="Every phone beeps in turn, 0.5 s apart; its row lights up">♪ Identify</button>
-  </div>
-  <p class="hint">Tick the speakers to use and name where they are in the room. <em>Identify</em> plays each phone in turn, so you can hear that it comes out of the right speaker.</p>
-</section>
+      <div class="group" role="group" aria-label="Selected clients">
+        <span class="hint" id="selTxt">None selected</span>
+        <button class="chip-btn solo" id="soloBtn" title="Solo the selected clients; again to clear (S)"><b>S</b> Solo</button>
+        <button class="chip-btn mute" id="muteBtn" title="Mute or unmute the selected clients (M)"><b>M</b> Mute</button>
+        <button class="chip-btn" id="clearBtn" title="Clear solo and mute: everyone audible">Clear</button>
+        <button class="chip-btn" id="identifyBtn" title="Each client (selected, or all) plays its test tone in turn, on its own speaker">♪ Identify</button>
+      </div>
 
-<!-- Every phone -->
-<section>
-  <table>
-    <thead><tr><th>#</th><th></th><th>Status</th><th>Speaker</th><th>Level</th><th></th></tr></thead>
-    <tbody id="phones"></tbody>
-  </table>
-</section>
+      <div class="group">
+        <select id="routeMenu" class="menu" aria-label="Route clients" title="Assign outputs to the selected clients, or to all">
+          <option value="">Route…</option>
+        </select>
+      </div>
+    </div>
 
-<!-- Where the pages come from (rarely changed) -->
-<section>
-  <details>
-    <summary class="title">Connection</summary>
+    <!-- The room: each speaker, its channels, and which clients play through it -->
+    <section class="speakers" id="speakers" aria-label="Speakers in use"></section>
+    <div class="spare" id="spare" aria-label="Other outputs"></div>
+
+    <!-- Every client -->
+    <section class="grid" id="grid" aria-label="Clients"></section>
+    <p class="empty hint" id="empty" hidden>No clients. Press + to add one.</p>
+  </main>
+
+  <!-- ── The conductor page goes here (a separate view, placed by the app) ─── -->
+  <div class="splitter" id="splitter" title="Drag to resize the conductor" role="separator" aria-orientation="vertical"></div>
+  <aside class="conductor-slot" id="conductorSlot" aria-label="Conductor"></aside>
+</div>
+
+<footer class="statusbar">
+  <span><kbd>Space</kbd> play / pause</span>
+  <span>click select · <kbd>⌘</kbd>-click add · <kbd>⇧</kbd>-click range</span>
+  <span><kbd>S</kbd> solo</span>
+  <span><kbd>M</kbd> mute</span>
+  <span><kbd>T</kbd> test</span>
+  <span><kbd>Esc</kbd> deselect</span>
+  <span class="grow"></span>
+  <span id="perf"></span>
+</footer>
+
+<!-- Backend and connection settings (rarely changed) -->
+<dialog class="sheet glass" id="connDialog" aria-labelledby="connTitle">
+  <form method="dialog">
+    <h2 id="connTitle">Backend</h2>
+    <label class="radio"><input type="radio" name="backend" value="local">
+      <span><b>Local backend</b> — the room's broker runs in this app, on this computer. Works offline; only simulated clients can join.</span></label>
+    <label class="radio"><input type="radio" name="backend" value="site">
+      <span><b>Site's broker</b> — the public broker the site uses (or the one below), so real phones can join the same room.</span></label>
+    <label class="field">Broker <input type="url" id="broker" placeholder="the site's default (public)"></label>
     <label class="field">Site <input type="url" id="site" placeholder="built into the app"></label>
-    <label class="field">Broker <input type="url" id="broker" placeholder="the site's default broker"></label>
-    <button class="small wide" id="connect">Apply and reload</button>
-    <p class="hint" id="connErr"></p>
-    <p class="hint">Use a public copy of the site (e.g. GitHub Pages or a tunnel) to let real phones join the same room as the simulated ones.</p>
-  </details>
-</section>
+    <p class="hint">For real phones, also set <b>Site</b> to a public copy of the site (GitHub Pages, or a tunnel to this computer): the conductor's QR code points there.</p>
+    <p class="hint" id="backendInfo"></p>
+    <p class="hint bad" id="connErr"></p>
+    <div class="actions">
+      <button value="cancel" class="chip-btn">Cancel</button>
+      <button id="connect" value="apply" class="chip-btn primary">Apply and reload</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="panel.js"></script>
 </body>

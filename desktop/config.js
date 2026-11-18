@@ -1,25 +1,38 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONFIG — the simulator's settings, saved in the app's user-data folder so a
-// rehearsal setup comes back next time.
+// rehearsal setup comes back next time. Solo and mute aren't saved: every
+// launch starts with all clients audible.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-// count     how many simulated phones
-// sinks     phone number → the device label it plays to ('' or missing = system default)
-// speakers  device label → { name, use }: where that speaker is in the room
-//           ("front left"), and whether "Spread" deals phones to it
-// site      the site's base URL ('' = the copy built into the app)
-// broker    the MQTT broker (?broker=; '' = the site's default)
-const DEFAULTS = { count: 4, sinks: {}, speakers: {}, site: '', broker: '' };
+// count       how many simulated clients
+// outputs     client number → { device, channels }: the device label it plays
+//             to ('' = the system default) and its channels (null = as is,
+//             [n] = channel n, [n, n + 1] = a stereo pair)
+// speakers    device label → { name }: where that speaker is in the room ("front left")
+// backend     'local': the broker built into the app (offline, this computer only)
+//             'site':  the site's own broker (the public one, or `broker`), so
+//                      real phones can join the same room
+// site        the site's base URL ('' = the copy built into the app)
+// broker      a broker URL for 'site' ('' = the site's default)
+// conductor   { shown, width }: the conductor column
+const DEFAULTS = {
+  count: 4, outputs: {}, speakers: {},
+  backend: 'local', site: '', broker: '',
+  conductor: { shown: true, width: 560 },
+};
 
 const file = () => path.join(app.getPath('userData'), 'simulator.json');
 
 function load() {
-  try { return { ...DEFAULTS, ...JSON.parse(fs.readFileSync(file(), 'utf8')) }; }
-  catch (e) { return { ...DEFAULTS }; } // first launch, or an unreadable file
+  let saved = {};
+  try { saved = JSON.parse(fs.readFileSync(file(), 'utf8')); }
+  catch (e) {} // first launch, or an unreadable file
+  return { ...DEFAULTS, ...saved, outputs: { ...saved.outputs }, speakers: { ...saved.speakers },
+           conductor: { ...DEFAULTS.conductor, ...saved.conductor } };
 }
 
 // Saves at most every half second (the panel saves on every change)
