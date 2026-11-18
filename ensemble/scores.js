@@ -35,6 +35,25 @@
 // All fades (fade-in, fade-out, level changes) follow an S-curve: slow at
 // both ends, so they start and land without a bump.
 //
+// `effects` (optional) gives each group a chain of effects that all its
+// sounds go through, in order: { A: [ … ], BC: [ … ], all: [ … ] }
+//   lowpass, highpass, bandpass   frequency (Hz), q; or frequency: { lfo:
+//                                 { rate, min, max } } to sweep the cutoff
+//                                 (its setting is then 'id.frequency.rate')
+//   reverb   mix (0–1); decay, preDelay (s, set once)
+//   delay    time (s), feedback (0–0.95), mix (0–1)
+// A setting is named 'id.setting'; the id is the type unless the effect has
+// an `id` (needed for two of the same type in one group).
+//
+// `effectEvents` (optional) change effect settings during the piece. They
+// have their own list, apart from `events`, so the sound events stay readable:
+//   at      when, as above
+//   groups  which groups, as above
+//   set     the setting: 'lowpass.frequency'
+//   to      the new value
+//   glide   seconds to move to the new value (default: instant)
+// See the README.
+//
 // `end` (optional) is when the conductor shows the piece as finished.
 // `credit` (optional) is shown on the conductor and on every phone while the
 // score is selected (PTC scores use `credit: PTC_CREDIT`).
@@ -121,6 +140,29 @@ const SCORES = [
       { at: '0:45', spread: 1.0, glide: 5 },
       { at: '0:55', groups: 'all', stop: 'all', fade: 5 },
     ],
+  },
+  {
+    title: 'Effects study (1 min)',
+    groups: 4,
+    effects: {
+      A: [{ type: 'lowpass', frequency: 300, q: 4 }],
+      B: [{ type: 'bandpass', q: 3, frequency: { lfo: { rate: 0.25, min: 300, max: 3000 } } }],
+      C: [{ type: 'delay', time: 0.375, feedback: 0.5, mix: 0.4 }],
+      D: [{ type: 'reverb', decay: 6, mix: 0.1 }],
+    },
+    events: [
+      { at: '0:00', groups: 'AB', play: 'demo/1', ratio: 1.01, fade: 3 },
+      { at: '0:10', groups: 'C', play: 'demo/2', ratio: 1.005, fade: 2 },
+      { at: '0:20', groups: 'D', play: 'demo/4', ratio: 1.02, fade: 5 },
+      { at: '0:50', groups: 'all', stop: 'all', fade: 10 },
+    ],
+    effectEvents: [
+      { at: '0:00', groups: 'A', set: 'lowpass.frequency', to: 6000, glide: 20 },
+      { at: '0:15', groups: 'C', set: 'delay.feedback', to: 0.8, glide: 20 },
+      { at: '0:25', groups: 'D', set: 'reverb.mix', to: 0.9, glide: 15 },
+      { at: '0:30', groups: 'B', set: 'bandpass.frequency.rate', to: 2, glide: 10 },
+    ],
+    end: '1:05',
   },
   {
     title: 'Mini composition',
