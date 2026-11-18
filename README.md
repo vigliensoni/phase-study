@@ -6,7 +6,62 @@ Everything is in [`ensemble/`](ensemble/README.md), which explains how to use it
 
 Live version: https://vigliensoni.github.io/phase-study/ (opens the conductor).
 
-It's a static site with no build step: serve the repo folder over http (the ensemble README shows how to run it with phones). The site root redirects to `ensemble/conductor.html`; shared styles are in `style.css`, sounds in `assets/`.
+It's a static site with no build step: serve the repo folder over http (see [Running it locally](#running-it-locally-http-server--cloudflare-tunnel) below). The site root redirects to `ensemble/conductor.html`; shared styles are in `style.css`, sounds in `assets/`.
+
+## Running it locally (http-server + Cloudflare tunnel)
+
+To test with phones, serve the repo from your computer with `http-server` and open a free Cloudflare *quick tunnel* to it. The tunnel gives you an `https://` address that any phone can reach, even on networks that keep devices apart (like most university Wi-Fi). You don't need a Cloudflare account.
+
+### 1. Install (once)
+
+**Windows** (PowerShell):
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS          # Node.js + npm
+winget install --id Cloudflare.cloudflared     # Cloudflare tunnel
+# close and reopen the terminal (or VS Code) so the new commands are found
+npm install -g http-server
+```
+
+**macOS** (Terminal, needs [Homebrew](https://brew.sh)):
+
+```bash
+brew install node            # Node.js + npm
+brew install cloudflared     # Cloudflare tunnel
+npm install -g http-server
+```
+
+Check that everything installed:
+
+```bash
+node --version
+http-server --version
+cloudflared --version
+```
+
+### 2. Run
+
+From the repo's root folder (the one holding `style.css` and `ensemble/`), open two terminals:
+
+```bash
+# terminal 1: serve the site on port 8000, with caching off
+http-server -p 8000 -c-1
+
+# terminal 2: open the tunnel; it prints https://<random>.trycloudflare.com
+cloudflared tunnel --url http://localhost:8000
+```
+
+Then open `https://<random>.trycloudflare.com/ensemble/conductor.html` on the computer. Use the tunnel's address, not `localhost`, because the conductor's QR code points at the page's own address. Phones join by scanning that QR code.
+
+Keep both terminals running while you perform (Ctrl+C stops them). The tunnel address changes every time you start `cloudflared`.
+
+### Troubleshooting
+
+- **Windows: "not recognized as the name of a cmdlet"**: reopen the terminal (or VS Code) after installing, so it picks up the new PATH.
+- **Windows: "running scripts is disabled on this system"**: use `http-server.cmd -p 8000 -c-1` instead, or run the commands from Command Prompt.
+- **macOS: `npm install -g` fails with a permissions error**: you probably installed Node without Homebrew; reinstall it with `brew install node`, or use `npx http-server -p 8000 -c-1` instead.
+- **Port 8000 already in use**: pick another port (e.g. `-p 8080`) and use the same one in the `cloudflared` command.
+- **No global install wanted**: this repo's `package.json` lists `http-server`, so `npm install` then `npx http-server -p 8000 -c-1` works too.
 
 ## Sound credits
 
