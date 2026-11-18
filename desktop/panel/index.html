@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- The panel only runs its own files: no inline scripts, nothing from the network -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+<title>Simulator</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Simulator</h1>
+    <div class="label">Room <span id="room">—</span> · <span id="net">loading…</span></div>
+  </div>
+</header>
+
+<!-- Transport: the conductor's Start / Stop, also on the space bar -->
+<section>
+  <button class="btn btn-play" id="play" title="Space">▶ Start</button>
+  <div class="status"><span id="cstatus">—</span><span id="piece"></span></div>
+  <p class="hint">Space starts and stops, here or on the conductor (except while typing in a field).</p>
+</section>
+
+<!-- How many phones -->
+<section>
+  <div class="title">Phones</div>
+  <div class="row">
+    <button class="small" id="fewer" aria-label="One phone fewer">−</button>
+    <input type="number" id="count" min="0" max="40" value="0" aria-label="Number of phones">
+    <button class="small" id="more" aria-label="One phone more">+</button>
+    <span class="hint" id="joinedTxt"></span>
+  </div>
+  <p class="hint">Each phone is the real performer page, joined to this room on its own, with its own clock sync and speaker.</p>
+</section>
+
+<!-- The room: each speaker, where it is, and which phones play through it -->
+<section>
+  <div class="title">Speakers</div>
+  <div id="speakers"></div>
+  <div class="row wrap">
+    <button class="small wide" id="spread" title="Deal the phones over the ticked speakers: 1 → first, 2 → second…">Spread phones</button>
+    <button class="small wide" id="byGroup" title="Score mode: every phone of a group on the same speaker">One group per speaker</button>
+    <button class="small wide" id="allDefault">All to default</button>
+    <button class="small wide" id="identify" title="Every phone beeps in turn, 0.5 s apart; its row lights up">♪ Identify</button>
+  </div>
+  <p class="hint">Tick the speakers to use and name where they are in the room. <em>Identify</em> plays each phone in turn, so you can hear that it comes out of the right speaker.</p>
+</section>
+
+<!-- Every phone -->
+<section>
+  <table>
+    <thead><tr><th>#</th><th></th><th>Status</th><th>Speaker</th><th>Level</th><th></th></tr></thead>
+    <tbody id="phones"></tbody>
+  </table>
+</section>
+
+<!-- Where the pages come from (rarely changed) -->
+<section>
+  <details>
+    <summary class="title">Connection</summary>
+    <label class="field">Site <input type="url" id="site" placeholder="built into the app"></label>
+    <label class="field">Broker <input type="url" id="broker" placeholder="the site's default broker"></label>
+    <button class="small wide" id="connect">Apply and reload</button>
+    <p class="hint" id="connErr"></p>
+    <p class="hint">Use a public copy of the site (e.g. GitHub Pages or a tunnel) to let real phones join the same room as the simulated ones.</p>
+  </details>
+</section>
+
+<script src="panel.js"></script>
+</body>
+</html>

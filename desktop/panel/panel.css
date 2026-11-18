@@ -1,0 +1,76 @@
+/* The simulator panel. Same colours and type as the site (style.css). */
+
+:root {
+  --bg: #f5f3ee; --fg: #1a1a1a; --accent: #4d7a00; --dim: #d3cec3;
+  --mid: #66645e; --c2: #d9480f; --surface: #ebe8e1; --on-accent: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a; --fg: #e8e4d9; --accent: #c8ff00; --dim: #2a2a2a;
+    --mid: #777; --c2: #ff6b35; --surface: #111; --on-accent: #0a0a0a;
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 13px/1.4 'Space Mono', ui-monospace, Menlo, Consolas, monospace;
+  border-left: 1px solid var(--dim);
+  min-height: 100vh;
+}
+
+header, section { padding: 0.9rem 1rem; border-bottom: 1px solid var(--dim); }
+h1 { font: 200 1.5rem/1 system-ui, sans-serif; letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 0.4rem; }
+.label, .title, th { font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--mid); }
+.title { margin-bottom: 0.6rem; }
+#room { color: var(--fg); }
+.hint { font-size: 0.75rem; color: var(--mid); margin-top: 0.5rem; }
+.bad { color: var(--c2); }
+
+button { font: inherit; cursor: pointer; background: none; color: var(--mid); border: 1px solid var(--dim); }
+button:hover:not(:disabled) { color: var(--fg); border-color: var(--fg); }
+button:disabled { opacity: 0.4; cursor: default; }
+.btn { width: 100%; padding: 0.7rem; font-size: 1rem; letter-spacing: 0.2em; text-transform: uppercase; }
+.btn-play { color: var(--accent); border-color: var(--accent); }
+.btn-play:hover:not(:disabled), .btn-play.on { background: var(--accent); color: var(--on-accent); }
+.small { padding: 0.25rem 0.6rem; }
+.wide { flex: 1 1 45%; }
+.status { margin-top: 0.6rem; }
+#piece { color: var(--mid); margin-left: 0.6rem; }
+
+.row { display: flex; gap: 0.4rem; align-items: center; }
+.row.wrap { flex-wrap: wrap; margin-top: 0.6rem; }
+input, select {
+  font: inherit; color: var(--fg); background: var(--surface);
+  border: 1px solid var(--dim); padding: 0.2rem 0.4rem; min-width: 0;
+}
+#count { width: 4.5rem; text-align: center; }
+
+/* Speakers: one card per output device, with the phones that play through it */
+.speaker { border: 1px solid var(--dim); padding: 0.5rem; margin-bottom: 0.4rem; }
+.speaker.unused { opacity: 0.55; }
+.speaker.unused .chips { display: none; }
+.speaker-hd { display: flex; gap: 0.4rem; align-items: center; }
+.speaker-hd .dev { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speaker-hd input[type=text] { width: 8.5rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.4rem; min-height: 1.3rem; }
+.chip { padding: 0 0.35rem; border: 1px solid var(--dim); font-size: 0.75rem; }
+.chip.flash, tr.flash { background: var(--accent); color: var(--on-accent); }
+
+/* Phones */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-weight: normal; padding-bottom: 0.3rem; }
+td { padding: 0.25rem 0.3rem 0.25rem 0; border-top: 1px solid var(--dim); vertical-align: middle; }
+td.st { font-size: 0.7rem; max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td select { width: 8.5rem; }
+td.acts { white-space: nowrap; }
+td.acts button { padding: 0 0.3rem; }
+.swatch { display: inline-block; width: 0.6rem; height: 0.6rem; margin-right: 0.3rem; }
+
+/* Level meter: how loud the phone is right now */
+.meter { width: 3rem; height: 0.5rem; background: var(--surface); border: 1px solid var(--dim); }
+.meter > div { height: 100%; width: 0; background: var(--accent); transition: width 0.1s; }
+
+details summary { cursor: pointer; }
+.field { display: flex; gap: 0.5rem; align-items: center; margin: 0.4rem 0; }
+.field input { flex: 1; }

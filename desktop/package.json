@@ -1,0 +1,54 @@
+{
+  "name": "phase-study-desktop",
+  "productName": "Phase Study Simulator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Runs the ensemble conductor and many simulated phones in one desktop app, each phone on its own speaker.",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "dist": "electron-builder",
+    "dist:dir": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "io.github.vigliensoni.phase-study.simulator",
+    "files": [
+      "*.js",
+      "panel/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "..",
+        "to": "site",
+        "filter": [
+          "index.html",
+          "style.css",
+          "script.js",
+          "LICENSE.md",
+          "ensemble/**",
+          "assets/**",
+          "!assets/ableton/**"
+        ]
+      }
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.music",
+      "identity": null
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Audio"
+    }
+  }
+}

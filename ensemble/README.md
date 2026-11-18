@@ -15,7 +15,7 @@ There are three pages:
 1. Open `conductor.html`. It shows a room code and a QR code; click the QR code to fill the screen with it for the projector (Esc closes it).
 2. Performers scan it and tap **Join** (browsers only start audio after a tap).
 3. Press **Calibrate levels** and match the phones' volumes (see *Calibrating levels*).
-4. Pick a mode and press **Start**.
+4. Pick a mode and press **Start** (or Space, unless you're typing in a field).
 
 **Free mode** plays one loop, every phone a voice. Each phone gets the lowest free voice number as it joins; **Number voices 1…N** renumbers everyone in join order (e.g. after phones leave), and a performer can nudge their own voice with − / +. **Start** lands 1.5 s after you press it; the ratio slider and **Pause phasing** take effect 0.4 s after you use them, on every phone at once. **Sync voices** restarts everyone aligned. The **Sound** buttons choose the loop (they come from `LOOP_SOUNDS` in `scores.js`).
 
@@ -211,6 +211,7 @@ Give every PTC score (titled *PTC …*, using `assets/PTC/`) `credit: PTC_CREDIT
 - **Phones can't connect:** some campus guest Wi-Fi blocks WebSockets. Use a phone hotspot or cellular data.
 - **A GitHub piece won't load:** the repo must be public, the link must point at the folder holding `score.json`, and a fresh push can take 5 minutes to appear.
 - **Monitor on the laptop:** open the performer page in another tab and join.
+- **Rehearse without phones:** the desktop simulator ([`../desktop`](../desktop/README.md)) runs the conductor and any number of simulated phones, each on its own speaker.
 
 ## How it works
 
@@ -273,6 +274,7 @@ playback.js      Schedules one phone's sounds (phones and the editor's preview)
 timeline.js      Draws a score's timeline (conductor and editor)
 performer.js     Phone: clock sync, scheduling, drift correction, audio
 conductor.js     Conductor: shared clock, state of the piece, roster, controls
+shortcuts.js     Conductor: Space starts and stops
 editor.js        Editor: form, preview, open and save
 ensemble.css     Layout (on top of ../style.css)
 keepawake.mp4    Silent video that keeps screens on where Wake Lock isn't available
