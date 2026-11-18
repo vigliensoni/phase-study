@@ -80,6 +80,12 @@
       <div class="score-only">
         <div class="ctrl-title">Score</div>
         <select id="scoreSel" class="score-sel" onchange="selectScore(this.value)"></select>
+        <div class="link-row">
+          <input type="url" id="linkCtrl" class="link-ctrl" placeholder="…or paste a GitHub link to a piece">
+          <button class="btn btn-reset link-btn" onclick="loadLink()">Load</button>
+        </div>
+        <p class="hint link-status" id="linkStatus">A piece is a folder with <code>score.json</code> and its sounds, in a public GitHub repo, e.g. <code>github.com/you/your-piece</code> or <code>…/tree/main/folder</code>.</p>
+        <a class="join-link" id="editLink" href="editor.html" target="_blank" rel="noopener">Write or edit a score in the editor →</a>
         <div class="ctrl-row" style="margin-top:0.8rem">
           <div class="ctrl-hd"><span class="cn">Start from</span>
             <input type="text" id="fromCtrl" class="from-ctrl" value="0:00" inputmode="numeric"></div>
@@ -128,7 +134,7 @@
 <!-- Load the scripts with a fresh ?v= each time, so a phone never runs a
      cached copy of old code (some servers let browsers keep files for an hour) -->
 <script>
-  for (const f of ['net.js', 'score-engine.js', 'scores.js', 'conductor.js'])
+  for (const f of ['net.js', 'score-engine.js', 'scores.js', 'pieces.js', 'timeline.js', 'conductor.js'])
     document.write('<script src="' + f + '?v=' + Date.now() + '"><\/script>');
 </script>
 </body>
