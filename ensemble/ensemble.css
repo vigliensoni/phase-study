@@ -112,6 +112,9 @@ body.standby.pinged .standby-screen { background: var(--accent); transition: non
 .timeline-sec { margin-bottom: 1.6rem; }
 #timeline { display: block; width: 100%; height: 240px; cursor: crosshair;
   border: 1px solid var(--dim); background: var(--well); }
+.timeline-zoom { display: flex; align-items: center; gap: 0.5rem; margin: 0.45rem 0; font-size: 0.75rem; }
+.timeline-zoom .btn { width: 2rem; padding: 0.25rem; }
+@media (max-width: 560px) { .timeline-zoom { flex-wrap: wrap; } }
 .score-err { font-size: 0.7rem; color: var(--c2); margin-top: 0.4rem; min-height: 1em; }
 .score-credit { font-size: 0.7rem; font-style: italic; color: var(--mid); margin-top: 0.4rem; }
 #creditTxt { text-align: center; max-width: 22rem; margin: 0 auto; }
