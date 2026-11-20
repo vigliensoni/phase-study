@@ -16,7 +16,7 @@
 const { WebContentsView, BaseWindow, session } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { prepareSession } = require('./site');
+const { prepareSession } = require('./permissions');
 const { lockNavigation, SAFE_PREFS } = require('./guard');
 
 const OUTPUT_STAGE = fs.readFileSync(path.join(__dirname, 'inject', 'output-stage.js'), 'utf8');
@@ -57,12 +57,12 @@ const call = (fn, ...args) => `window.__sim.${fn}(${args.map(a => JSON.stringify
 // ═══════════════════════════════════════════════════════════════════════════════
 class Instance {
   // n        its number in the simulator (also names its session)
-  // url      the performer page, with ?room= and ?broker=
+  // url      the performer page, with ?room=
   // output   { device, channels }: the speaker it plays to ('' = the system
   //          default) and which of its channels (null = as is)
   // audible  false: soloed out or muted (it keeps playing, unheard)
   // muted    silence the whole page (the automated test without a loopback device)
-  constructor(n, { url, site, output, audible = true, muted = false }) {
+  constructor(n, { url, output, audible = true, muted = false }) {
     this.n = n;
     this.output = output;
     this.audible = audible;
@@ -78,12 +78,11 @@ class Instance {
     prepareSession(ses);
     this.view = new WebContentsView({ webPreferences: {
       ...SAFE_PREFS, session: ses,
-      preload: path.join(__dirname, 'keys.js'),     // the simulator's shortcuts work on its page too (⧉)
       backgroundThrottling: false,                 // keep its timers (clock pings, drift checks) running while hidden
       autoplayPolicy: 'no-user-gesture-required',  // so it can join without a tap
     } });
     this.wc = this.view.webContents;
-    lockNavigation(this.wc, { site, popups: false });
+    lockNavigation(this.wc);
     this.wc.setAudioMuted(muted);
     this.wc.on('did-start-loading', () => { this.joined = false; this.info = null; });
     this.wc.on('did-finish-load', () => this.join()); // also after a reload

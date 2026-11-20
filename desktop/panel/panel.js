@@ -1,13 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // SIMULATOR PANEL — the window's own interface, around the conductor page.
 // Everything goes through window.sim (preload.js). The main process sends a
-// snapshot of the conductor, the backend and every client a few times a
-// second; the panel builds its cards and speakers when the clients or the
-// devices change, and otherwise only updates them in place (so a menu or a
-// text field isn't rebuilt under you).
+// snapshot of the conductor and every client a few times a second; the panel
+// builds its cards when the clients or the devices change, and otherwise only
+// updates them in place (so a menu isn't rebuilt under you).
 //
-// Selection lives here; solo, mute and outputs live in the main process,
-// which applies them to the clients (a solo only changes their level).
+// Solo, mute and outputs live in the main process, which applies them to the
+// clients (a solo only changes their level).
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const $ = id => document.getElementById(id);
@@ -17,10 +16,8 @@ if (params.get('platform') === 'darwin') document.documentElement.classList.add(
 const MAC = params.get('platform') === 'darwin';
 
 let snap = null;              // the latest snapshot
-let devices = [];             // connected outputs: [{ label, channels }] (without the system default)
-let defaultChannels = 2;      // the system default's channels
-const selected = new Set();   // selected client numbers
-let anchor = null;            // where a shift-click range starts
+let devices = [];             // connected outputs: [{ label, channels }] (without the default)
+let defaultChannels = 2;      // the default output's channels
 
 const isSolo = n => snap && snap.solo.includes(n);
 const isMuted = n => snap && snap.mute.includes(n);
@@ -39,7 +36,7 @@ function el(tag, props = {}, ...children) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SPEAKERS — output devices, and their channels
+// OUTPUTS — devices, and their channels
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chromium lists the default device twice ('default', then its real entry), and
 // on Windows a 'communications' one too; the real entries are enough.
@@ -70,14 +67,13 @@ async function loadDevices() {
 }
 
 // Shorter names for the menus: "MacBook Pro Speakers (Built-in)" → "MacBook Pro Speakers"
-const shortName = label => label ? label.replace(/\s*\((Built-in|Virtual|Bluetooth)\)$/i, '') : 'System default';
+const shortName = label => label ? label.replace(/\s*\((Built-in|Virtual|Bluetooth)\)$/i, '') : 'Default output';
 const connected = label => !label || devices.some(d => d.label === label);
 const channelsFor = label => (!label ? defaultChannels : (devices.find(d => d.label === label) || {}).channels || 2);
-const roomName = label => (snap && snap.cfg.speakers[label] && snap.cfg.speakers[label].name) || '';
 
-// The speakers to show: the default, every device, and any a client was given
-// that isn't plugged in right now (so its clients are still listed somewhere)
-function speakerList() {
+// The outputs in the menus: the default, every device, and any a client was
+// given that isn't plugged in right now
+function outputList() {
   const given = snap ? snap.phones.map(p => p.output.device) : [];
   return [...new Set(['', ...devices.map(d => d.label), ...given])];
 }
@@ -85,7 +81,6 @@ function speakerList() {
 // ── Channels ──────────────────────────────────────────────────────────────────
 // null = as is (the client's stereo, laid out by the device); [n] = channel n;
 // [n, n + 1] = a stereo pair
-const chKey = ch => (ch ? ch.join('-') : '');
 function chName(ch, total) {
   if (!ch) return total > 2 ? 'ch 1–2' : 'stereo';
   if (ch.length === 2) return `ch ${ch[0]}–${ch[1]}`;
@@ -101,62 +96,21 @@ function channelChoices(total) {
 
 const outValue = o => JSON.stringify({ device: o.device || '', channels: o.channels || null });
 
-// The output menu of a card: one group per speaker, with its channels
+// The output menu of a card: one group per output, with its channels. The
+// channel comes first, so it still shows when a long name is cut off.
 function outputOptions() {
-  return speakerList().map(label => {
+  return outputList().map(label => {
     const total = channelsFor(label);
     const name = shortName(label) + (connected(label) ? '' : ' (not connected)');
     return el('optgroup', { label: `${name} · ${total} ch` },
       ...channelChoices(total).map(ch =>
-        el('option', { value: outValue({ device: label, channels: ch }), textContent: `${shortName(label)} · ${chName(ch, total)}` })));
+        el('option', { value: outValue({ device: label, channels: ch }), textContent: `${cap(chName(ch, total))} · ${shortName(label)}` })));
   });
 }
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SELECTION
-// ═══════════════════════════════════════════════════════════════════════════════
-const order = () => (snap ? snap.phones.map(p => p.n) : []);
-
-function select(n, ev = {}) {
-  const additive = MAC ? ev.metaKey : ev.ctrlKey;
-  if (ev.shiftKey && anchor !== null) {
-    const o = order(), a = o.indexOf(anchor), b = o.indexOf(n);
-    if (!additive) selected.clear();
-    o.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(k => selected.add(k));
-  } else if (additive) {
-    selected.has(n) ? selected.delete(n) : selected.add(n);
-    anchor = n;
-  } else {
-    selected.clear(); selected.add(n); anchor = n;
-  }
-  update();
-}
-
-function selectOnly(ns, ev = {}) {
-  if (!((MAC ? ev.metaKey : ev.ctrlKey))) selected.clear();
-  ns.forEach(n => selected.add(n));
-  anchor = ns[0] ?? null;
-  update();
-}
-
-function clearSelection() { selected.clear(); anchor = null; update(); }
-
-// Arrow keys move the selection through the grid
-function moveSelection(key) {
-  const o = order();
-  if (!o.length) return;
-  const cards = [...$('grid').children];
-  const cols = Math.max(1, cards.filter(c => c.offsetTop === cards[0].offsetTop).length);
-  const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[key];
-  const from = anchor !== null && o.includes(anchor) ? o.indexOf(anchor) : -step;
-  const to = Math.max(0, Math.min(o.length - 1, from + step));
-  select(o[to]);
-  const card = $('grid').querySelector(`[data-n="${o[to]}"]`);
-  if (card) card.scrollIntoView({ block: 'nearest' });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SOLO AND MUTE (Ableton-style)
+// SOLO AND MUTE (as on a mixing desk)
 // ═══════════════════════════════════════════════════════════════════════════════
 // The change shows at once; the next snapshot confirms it
 function setSolo(ns) { snap.solo = ns; sim.solo(ns); update(); }
@@ -165,86 +119,24 @@ function setMute(ns, on) {
   sim.mute(ns, on); update();
 }
 
-// S: solo the selection; again (same selection, or nothing selected) clears it
-function soloKey() {
-  const sel = [...selected];
-  const same = sel.length === snap.solo.length && sel.every(isSolo);
-  setSolo(!sel.length || same ? [] : sel);
-}
-
-// M: mute the selection, or unmute it if it's all muted already
-function muteKey() {
-  const sel = [...selected];
-  if (sel.length) setMute(sel, !sel.every(isMuted));
-}
-
-// A card's S: solo this one alone (again: clear); with ⌘ / Ctrl, add it to the solo or take it out
+// A card's S: solo this one alone (a lit S: unsolo it); with ⌘ / Ctrl, add it to the solo or take it out
 function soloButton(n, ev) {
   if (MAC ? ev.metaKey : ev.ctrlKey) setSolo(isSolo(n) ? snap.solo.filter(k => k !== n) : [...snap.solo, n]);
-  else setSolo(isSolo(n) && snap.solo.length === 1 ? [] : [n]);
-}
-
-const targets = () => (selected.size ? [...selected] : order()); // the selection, or everyone
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ROUTING — the Route… menu
-// ═══════════════════════════════════════════════════════════════════════════════
-function routeActions() {
-  const acts = [];
-  const live = devices.map(d => d.label);
-  if (live.length > 1) acts.push(['spread', 'Each to its own speaker', ns =>
-    Object.fromEntries(ns.map((n, i) => [n, { device: live[i % live.length], channels: null }]))]);
-  for (const d of devices) if (d.channels > 1) acts.push([`ch:${d.label}`, `Each to its own channel of ${shortName(d.label)}`, ns =>
-    Object.fromEntries(ns.map((n, i) => [n, { device: d.label, channels: [(i % d.channels) + 1] }]))]);
-  if (live.length > 1) acts.push(['groups', 'One group per speaker', ns => {
-    const groups = (snap.conductor && snap.conductor.groups) || [];
-    const map = {};
-    for (const n of ns) {
-      const p = snap.phones.find(q => q.n === n);
-      if (p && p.group) map[n] = { device: live[groups.indexOf(p.group) % live.length], channels: null };
-    }
-    return map;
-  }]);
-  acts.push(['default', 'All to the system default', ns => Object.fromEntries(ns.map(n => [n, { device: '', channels: null }]))]);
-  for (const label of live) acts.push([`all:${label}`, `All to ${shortName(label)}`, ns =>
-    Object.fromEntries(ns.map(n => [n, { device: label, channels: null }]))]);
-  return acts;
-}
-
-function buildRouteMenu() {
-  const menu = $('routeMenu');
-  const who = selected.size ? `${selected.size} selected` : 'all clients';
-  menu.replaceChildren(el('option', { value: '', textContent: 'Route…' }),
-    el('optgroup', { label: `Route ${who}` }, ...routeActions().map(([v, t]) => el('option', { value: v, textContent: t }))));
+  else setSolo(isSolo(n) ? snap.solo.filter(k => k !== n) : [n]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BUILD — cards and speakers, when the clients or the devices change
+// BUILD — cards, when the clients or the devices change
 // ═══════════════════════════════════════════════════════════════════════════════
-let builtCards = '', builtSpeakers = '';
+let builtCards = '';
+const order = () => (snap ? snap.phones.map(p => p.n) : []);
 
 function build() {
   if (!snap) return;
-  const optsKey = JSON.stringify([speakerList(), devices, defaultChannels]);
-
-  // ── Cards ───────────────────────────────────────────────────────────────────
-  const cardsKey = JSON.stringify([order(), optsKey]);
+  const cardsKey = JSON.stringify([order(), outputList(), devices, defaultChannels]);
   if (cardsKey !== builtCards) {
     builtCards = cardsKey;
     $('grid').replaceChildren(...snap.phones.map(p => card(p.n)));
-  }
-
-  // ── Speakers ────────────────────────────────────────────────────────────────
-  const speakersKey = JSON.stringify([optsKey, snap.phones.map(p => [p.n, p.output])]);
-  if (speakersKey !== builtSpeakers) {
-    builtSpeakers = speakersKey;
-    // Speakers in use get a tile; the others, one quiet row of names
-    const used = speakerList().filter(l => clientsOn(l).length);
-    const spare = speakerList().filter(l => !clientsOn(l).length);
-    $('speakers').replaceChildren(...used.map(speakerTile));
-    $('spare').replaceChildren(...(spare.length ? [el('span', { class: 'spare-label', textContent: 'Other outputs' }),
-      ...spare.map(l => el('span', { class: 'pill' + (connected(l) ? '' : ' missing'), title: l || 'The system’s default output',
-        textContent: `${shortName(l)} · ${channelsFor(l)} ch` }))] : []));
   }
   update();
 }
@@ -253,10 +145,7 @@ function card(n) {
   const out = el('select', { class: 'out', title: 'Where this client plays',
     onchange: () => sim.setOutputs({ [n]: JSON.parse(out.value) }) }, ...outputOptions());
   const btn = (cls, text, title, onclick) => el('button', { class: 'sm-btn ' + cls, textContent: text, title, onclick });
-  return el('div', { class: 'card', tabIndex: 0, data: { n }, onmousedown: ev => {
-      if (ev.target.closest('button, select, input')) return;
-      select(n, ev);
-    } },
+  return el('div', { class: 'card', data: { n } },
     el('div', { class: 'card-hd' },
       el('span', { class: 'num', textContent: String(n).padStart(2, '0') }),
       el('span', { class: 'group-badge', textContent: '·', title: 'Group and phone in the group (dealt by the conductor)' }),
@@ -272,58 +161,14 @@ function card(n) {
         el('div', { class: 'sync' }))),
     el('div', { class: 'out-row' }, out),
     el('div', { class: 'card-ft' },
-      btn('solo', 'S', 'Solo (⌘-click: add to the solo)', ev => soloButton(n, ev)),
+      btn('solo', 'S', `Solo (${MAC ? '⌘' : 'Ctrl'}-click: add to the solo)`, ev => soloButton(n, ev)),
       btn('mute', 'M', 'Mute', () => setMute([n], !isMuted(n))),
-      btn('plain extra', '♪', 'Test tone on its speaker', () => sim.test(n)),
+      btn('plain', '♪', 'Test tone on its output', () => sim.test(n)),
       el('span', { class: 'grow' }),
       btn('plain extra', '⧉', 'Show this client’s page', () => sim.show(n)),
       btn('plain extra', '↻', 'Reload and join again', () => sim.rejoin(n)),
-      btn('plain extra', '×', 'Remove this client', () => { selected.delete(n); sim.remove([n]); })));
+      btn('plain extra', '×', 'Remove this client', () => sim.remove([n]))));
 }
-
-const SPEAKER_ICON = '<svg class="speaker-icon" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/></svg>';
-
-function speakerTile(label) {
-  const total = channelsFor(label);
-  const place = el('input', { class: 'place', type: 'text', value: roomName(label), placeholder: 'Where is it? e.g. front left',
-    onchange: () => sim.setSpeaker(label, { name: place.value }) });
-  const tile = el('div', { class: 'speaker glass' + (connected(label) ? '' : ' missing'), data: { label },
-    onclick: ev => {
-      if (ev.target.closest('input, button')) return;
-      const lane = ev.target.closest('.lane');
-      const ns = lane ? JSON.parse(lane.dataset.ns) : clientsOn(label).map(p => p.n);
-      if (ns.length) selectOnly(ns, ev);
-    } },
-    el('div', { class: 'speaker-hd' },
-      el('span', { innerHTML: SPEAKER_ICON, style: 'display:contents' }),
-      el('div', { class: 'speaker-title' },
-        el('div', { class: 'speaker-name', textContent: shortName(label), title: label || 'The system’s default output' }),
-        el('div', { class: 'speaker-meta' }, connected(label)
-          ? `${total} channel${total === 1 ? '' : 's'}${label ? '' : ' · system default'}`
-          : el('span', { class: 'bad', textContent: 'Not connected — its clients are silent' }))),
-      el('button', { class: 'icon-btn', textContent: '♪', title: 'Identify: its clients’ test tones in turn',
-        onclick: () => sim.identify(clientsOn(label).map(p => p.n)) })),
-    place,
-    el('div', { class: 'lanes' }));
-
-  // One lane per channel layout in use, with its clients
-  const lanes = new Map();
-  for (const p of clientsOn(label)) {
-    const k = chKey(p.output.channels);
-    if (!lanes.has(k)) lanes.set(k, { ch: p.output.channels, ns: [] });
-    lanes.get(k).ns.push(p.n);
-  }
-  const sorted = [...lanes.values()].sort((a, b) => (a.ch ? a.ch[0] : 0) - (b.ch ? b.ch[0] : 0));
-  tile.querySelector('.lanes').append(...(sorted.length ? sorted.map(({ ch, ns }) =>
-    el('div', { class: 'lane', data: { ns: JSON.stringify(ns) }, title: 'Click to select these clients' },
-      el('span', { class: 'lane-name', textContent: chName(ch, total) }),
-      el('span', { class: 'lane-clients' }, ...ns.map(n => el('span', { class: 'tag', data: { n } }, el('i'), String(n)))),
-      el('span', { class: 'lane-meter' }, el('i'))))
-    : [el('div', { class: 'lane-empty', textContent: 'No clients' })]));
-  return tile;
-}
-
-const clientsOn = label => (snap ? snap.phones.filter(p => (p.output.device || '') === label) : []);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // UPDATE — every snapshot
@@ -359,7 +204,7 @@ const pct = v => Math.min(100, Math.sqrt(v || 0) * 110) + '%'; // a rough loudne
 function connState(p) {
   if (p.error && !p.joined) return ['off', p.error];
   if (!p.joined) return ['wait', 'Joining…'];
-  if (!p.connected) return ['off', 'Not connected to the backend'];
+  if (!p.connected) return ['off', 'Not connected to the broker'];
   if (!p.synced) return ['wait', 'Syncing its clock'];
   return ['ok', 'Connected and in sync'];
 }
@@ -370,39 +215,27 @@ function update() {
   colors = { fg: themeColor('--fg'), faint: themeColor('--faint'), track: themeColor('--fill-hover') };
 
   // ── Toolbar ─────────────────────────────────────────────────────────────────
-  $('room').textContent = snap.room;
-  const play = $('play');
-  play.classList.toggle('on', !!(C && C.playing));
-  play.setAttribute('aria-label', C && C.playing ? 'Pause' : 'Play');
-  play.disabled = $('stop').disabled = !C;
-  const paused = C && !C.playing && C.from > 0;
-  // The conductor's status, unless it's the time (already shown above)
-  $('cstatus').textContent = !C ? '—' : paused ? 'Paused' : C.playing && /^\d/.test(C.status) ? 'Playing' : sentence(C.status);
-  $('piece').textContent = C ? C.title : 'loading…';
-  $('end').textContent = C ? ' / ' + fmt(C.end, false) : '';
-  if (C) clock = { t: C.playing ? C.time : C.from, at: performance.now(), playing: C.playing, end: C.end };
-
-  const B = snap.backend, online = !!(C && C.online);
-  $('backendDot').className = 'dot ' + (!B.running ? 'off' : online ? 'ok' : 'wait');
-  $('backendTxt').textContent = B.mode === 'local'
-    ? (B.running ? `Local backend · ${B.performers} + ${B.conductors} connected` : 'Local backend · stopped')
-    : `Site broker · ${online ? 'online' : (C ? C.net.toLowerCase() : 'connecting')}`;
-  $('backend').title = B.mode === 'local' ? `MQTT broker on this computer: ${B.url || ''}` : `Broker: ${B.url}`;
+  if (document.activeElement !== $('link') && !linkEdited) $('link').value = snap.cfg.link;
+  $('room').textContent = snap.room || '—';
+  const online = !!(C && C.online);
+  $('netDot').className = 'dot ' + (!snap.site ? '' : online ? 'ok' : 'wait');
+  $('roomPill').title = !snap.site ? 'No server link yet'
+    : `${snap.site} · ${online ? `connected · the conductor sees ${C.roster} client${C.roster === 1 ? '' : 's'}` : C ? C.net.toLowerCase() : 'loading the conductor…'}`;
+  $('start').hidden = !!snap.site;
+  document.body.classList.toggle('no-site', !snap.site);
 
   // ── Bar ─────────────────────────────────────────────────────────────────────
   const count = $('count');
-  if (document.activeElement !== count) count.value = snap.phones.length;
+  if (document.activeElement !== count) count.value = snap.site ? snap.phones.length : snap.cfg.count;
   count.max = snap.maxClients;
   const joined = snap.phones.filter(p => p.joined && p.synced).length;
-  $('joinedTxt').textContent = joined < snap.phones.length ? `${joined} of ${snap.phones.length} in sync…` : '';
-  for (const n of [...selected]) if (!order().includes(n)) selected.delete(n);
-  $('selTxt').textContent = selected.size ? `${selected.size} selected` : 'None selected';
-  $('soloBtn').classList.toggle('on', snap.solo.length > 0);
-  $('soloBtn').title = snap.solo.length ? `Soloed: ${[...snap.solo].sort((a, b) => a - b).join(', ')} · S again clears` : 'Solo the selected clients (S)';
-  $('clearBtn').disabled = !snap.solo.length && !snap.mute.length;
-  $('empty').hidden = snap.phones.length > 0;
+  $('joinedTxt').textContent = !snap.site ? '' : joined < snap.phones.length ? `${joined} of ${snap.phones.length} in sync…`
+    : C && online ? `the conductor sees ${C.roster}` : '';
+  const soloed = [...snap.solo].sort((a, b) => a - b), muted = [...snap.mute].sort((a, b) => a - b);
+  $('soloTxt').textContent = [soloed.length ? `Solo: ${soloed.join(', ')}` : '', muted.length ? `Muted: ${muted.join(', ')}` : ''].filter(Boolean).join(' · ');
+  $('clearBtn').hidden = !soloed.length && !muted.length;
+  $('empty').hidden = !snap.site || snap.phones.length > 0;
   $('grid').classList.toggle('compact', snap.phones.length > 12);
-  $('perf').textContent = C ? `the conductor sees ${C.roster} client${C.roster === 1 ? '' : 's'}` : '';
 
   // ── Cards ───────────────────────────────────────────────────────────────────
   const cards = $('grid').children;
@@ -410,7 +243,6 @@ function update() {
     const cardEl = cards[i];
     if (!cardEl || +cardEl.dataset.n !== p.n) return;
     const solo = isSolo(p.n), mute = isMuted(p.n), hear = audible(p.n);
-    cardEl.classList.toggle('selected', selected.has(p.n));
     cardEl.classList.toggle('soloed', solo);
     cardEl.classList.toggle('silent', !hear);
     cardEl.classList.toggle('flash', !!p.flash);
@@ -446,8 +278,8 @@ function update() {
     const out = outRow.firstChild, v = outValue(p.output);
     if (document.activeElement !== out && out.value !== v) {
       out.value = v;
-      if (out.value !== v) { // a channel this speaker doesn't have (any more)
-        out.append(el('option', { value: v, textContent: `${shortName(p.output.device)} · ${chName(p.output.channels, 0)} (unavailable)` }));
+      if (out.value !== v) { // a channel this output doesn't have (any more)
+        out.append(el('option', { value: v, textContent: `${cap(chName(p.output.channels, 0))} · ${shortName(p.output.device)} (unavailable)` }));
         out.value = v;
       }
     }
@@ -458,56 +290,16 @@ function update() {
     ft.children[0].classList.toggle('on', solo);
     ft.children[1].classList.toggle('on', mute);
   });
-
-  // ── Speakers: lit while what you hear of their clients is sounding ──────────
-  const byN = new Map(snap.phones.map(p => [p.n, p]));
-  for (const tile of $('speakers').children) {
-    let live = false;
-    for (const lane of tile.querySelectorAll('.lane')) {
-      const ns = JSON.parse(lane.dataset.ns);
-      const level = Math.max(0, ...ns.map(n => ((byN.get(n) || {}).levels || {}).post || 0));
-      lane.querySelector('.lane-meter > i').style.width = pct(level);
-      live = live || level > 0.01;
-    }
-    tile.classList.toggle('live', live);
-    for (const t of tile.querySelectorAll('.tag')) {
-      const p = byN.get(+t.dataset.n);
-      if (!p) continue;
-      t.firstChild.style.background = p.color || '';
-      t.classList.toggle('quiet', !audible(p.n));
-      t.classList.toggle('flash', !!p.flash);
-      t.classList.toggle('sel', selected.has(p.n));
-      t.title = `Client ${p.n}${p.label && p.label !== '·' ? ' · ' + p.label : ''}${audible(p.n) ? '' : ' (not heard)'}`;
-    }
-  }
-}
-
-// ── Clock: smooth between snapshots ───────────────────────────────────────────
-let clock = null;
-function fmt(t, tenths = true) {
-  if (t == null || !isFinite(t)) return '0:00';
-  const sign = t < 0 ? '−' : '';
-  t = Math.abs(t);
-  const m = Math.floor(t / 60), s = t % 60;
-  return sign + m + ':' + (tenths ? s.toFixed(1).padStart(4, '0') : String(Math.floor(s)).padStart(2, '0'));
-}
-function tick() {
-  if (clock) {
-    let t = clock.t;
-    if (clock.playing) t = Math.min(clock.end, t + (performance.now() - clock.at) / 1000);
-    $('time').textContent = fmt(t);
-  }
-  requestAnimationFrame(tick);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONDUCTOR COLUMN — the conductor page is a view of its own, placed over the
 // slot this layout keeps for it
 // ═══════════════════════════════════════════════════════════════════════════════
-let conductorShown = true, sheetOpen = false;
+let conductorShown = true;
 function placeConductor() {
   const r = $('conductorSlot').getBoundingClientRect();
-  sim.conductorSlot(conductorShown && !sheetOpen ? { x: r.left, y: r.top, width: r.width, height: r.height } : null);
+  sim.conductorSlot(conductorShown ? { x: r.left, y: r.top, width: r.width, height: r.height } : null);
 }
 new ResizeObserver(placeConductor).observe($('conductorSlot'));
 new ResizeObserver(placeConductor).observe(document.body);
@@ -539,87 +331,37 @@ $('splitter').addEventListener('pointerdown', ev => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // INPUT
 // ═══════════════════════════════════════════════════════════════════════════════
-// The shortcuts, from this page or sent from the conductor page (keys.js).
-// Not while typing in a field or using a menu.
+// The server link
+let linkEdited = false;
+$('link').addEventListener('input', () => { linkEdited = true; });
+$('linkForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const err = $('linkErr');
+  err.hidden = true;
+  try {
+    await sim.setLink($('link').value);
+    linkEdited = false;
+    $('link').blur();
+  } catch (e) {
+    err.textContent = e.message.replace(/^.*Error: /, '');
+    err.hidden = false;
+  }
+});
+
+// Space: the conductor's Start / Stop. Not while typing in a field or using a menu.
 const TYPING = 'input:not([type=range]):not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable]';
-
-function shortcut(key, ev = {}) {
-  if (!snap) return false;
-  switch (key) {
-    case 'space':  sim.transport('toggle'); return true;
-    case 's':      soloKey(); return true;
-    case 'm':      muteKey(); return true;
-    case 't':      [...selected].forEach(n => sim.test(n)); return true;
-    case 'escape': clearSelection(); return true;
-  }
-  return false;
-}
-
 document.addEventListener('keydown', ev => {
-  if (sheetOpen) return;
-  if (ev.target.closest && ev.target.closest(TYPING)) {
-    if (ev.key === 'Escape') ev.target.blur();
-    return;
-  }
-  if (!snap) return;
-  const mod = MAC ? ev.metaKey : ev.ctrlKey;
-  if (mod && ev.key.toLowerCase() === 'a') { ev.preventDefault(); selectOnly(order()); return; }
-  if (ev.key.startsWith('Arrow') && !mod) { ev.preventDefault(); moveSelection(ev.key); return; }
-  if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
-  const key = { ' ': 'space', Escape: 'escape' }[ev.key] || ev.key.toLowerCase();
-  if (!['space', 's', 'm', 't', 'escape'].includes(key)) return;
+  if (ev.code !== 'Space' || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+  if (ev.target.closest && ev.target.closest(TYPING)) return;
   ev.preventDefault(); // no page scroll, no click on the focused button
-  if (!ev.repeat) shortcut(key, ev);
-});
-sim.onShortcut(key => { if (!sheetOpen) shortcut(key); });
-
-// A click on the empty workspace clears the selection
-$('workspace').addEventListener('mousedown', ev => {
-  if (!ev.target.closest('.card, .speaker, .bar, button, select, input')) clearSelection();
+  if (!ev.repeat) sim.startStop();
 });
 
-$('play').onclick = () => sim.transport('toggle');
-$('stop').onclick = () => sim.transport('stop');
-$('fewer').onclick = () => sim.setCount(snap.phones.length - 1);
-$('more').onclick = () => sim.add(1);
+$('fewer').onclick = () => sim.setCount((snap.site ? snap.phones.length : snap.cfg.count) - 1);
+$('more').onclick = () => sim.setCount((snap.site ? snap.phones.length : snap.cfg.count) + 1);
 $('count').onchange = ev => sim.setCount(+ev.target.value);
 $('count').onkeydown = ev => { if (ev.key === 'Enter') ev.target.blur(); };
-$('soloBtn').onclick = soloKey;
-$('muteBtn').onclick = muteKey;
 $('clearBtn').onclick = () => { setSolo([]); setMute(order(), false); };
-$('identifyBtn').onclick = () => sim.identify(targets());
-
-$('routeMenu').addEventListener('mousedown', buildRouteMenu);
-$('routeMenu').addEventListener('focus', buildRouteMenu);
-$('routeMenu').onchange = ev => {
-  const act = routeActions().find(([v]) => v === ev.target.value);
-  ev.target.value = '';
-  if (act) sim.setOutputs(act[2](targets()));
-};
-
-// ── Backend sheet ─────────────────────────────────────────────────────────────
-const sheet = $('connDialog');
-$('backend').onclick = () => {
-  const cfg = snap.cfg;
-  for (const r of sheet.querySelectorAll('input[name=backend]')) r.checked = r.value === cfg.backend;
-  $('site').value = cfg.site;
-  $('broker').value = cfg.broker;
-  $('connErr').textContent = '';
-  const B = snap.backend;
-  $('backendInfo').textContent = B.mode === 'local' && B.running
-    ? `Running at ${B.url} · ${B.performers} performer${B.performers === 1 ? '' : 's'} and ${B.conductors} conductor connected · ${B.messages} messages so far.` : '';
-  sheetOpen = true;
-  placeConductor(); // the conductor is a view on top: hide it while the sheet is open
-  sheet.showModal();
-};
-sheet.addEventListener('close', async () => {
-  sheetOpen = false;
-  placeConductor();
-  if (sheet.returnValue !== 'apply') return;
-  const mode = (sheet.querySelector('input[name=backend]:checked') || {}).value || 'local';
-  try { await sim.setConnection({ backend: mode, site: $('site').value, broker: $('broker').value }); }
-  catch (e) { alert(e.message.replace(/^.*Error: /, '')); }
-});
 
 navigator.mediaDevices.addEventListener('devicechange', () => {
   channelCache.clear();
@@ -631,7 +373,8 @@ sim.snapshot().then(s => {
   snap = s;
   document.body.style.setProperty('--conductor-w', s.cfg.conductor.width + 'px');
   showConductor(s.cfg.conductor.shown);
+  update();
+  if (!s.site) $('link').focus();
   loadDevices();
 });
 sim.onUpdate(s => { snap = s; build(); });
-requestAnimationFrame(tick);
