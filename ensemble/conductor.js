@@ -567,3 +567,7 @@ renderRoster();
 setInterval(renderRoster, 1000);
 loadDurations([...LOOP_SOUNDS.map(n => soundURL(n)), ...comp.sounds.map(scoreURL)]);
 requestAnimationFrame(renderLoop);
+
+document.body.addEventListener('keydown', ev => {
+  if (ev.key === ' ' && ev.target === document.body) { ev.preventDefault(); togglePlay(); }
+});
