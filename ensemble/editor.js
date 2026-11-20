@@ -131,10 +131,31 @@ const groupsString = g => g === undefined || g === 'all' || g === '*' ? 'all' : 
 // LIVE: compile, timeline, errors, JSON
 // ═══════════════════════════════════════════════════════════════════════════════
 let comp = compileScore(toScore());
+let timelineZoom = 1, timelineStart = 0;
+
+function timelineWindow() {
+  const end = Math.max(comp.end, 1), span = end / timelineZoom;
+  timelineStart = Math.max(0, Math.min(end - span, timelineStart));
+  return { start: timelineStart, end: timelineStart + span };
+}
+
+function syncTimelineControls() {
+  const end = Math.max(comp.end, 1), span = end / timelineZoom;
+  timelineStart = Math.max(0, Math.min(end - span, timelineStart));
+}
+
+function setTimelineZoom(value, anchor = null) {
+  const old = timelineWindow(), focus = anchor ?? (old.start + old.end) / 2;
+  const ratio = (focus - old.start) / (old.end - old.start);
+  timelineZoom = Math.max(1, Math.min(16, value));
+  timelineStart = focus - Math.max(comp.end, 1) / timelineZoom * ratio;
+  syncTimelineControls();
+}
 
 function changed() {
   const score = toScore();
   comp = compileScore(score);
+  syncTimelineControls();
   $('json').textContent = JSON.stringify(toScore(true), null, 2);
 
   const problems = [...comp.errors];
@@ -161,7 +182,8 @@ function changed() {
 
 function renderLoop() {
   const head = preview ? preview.st + (audioCtx.currentTime - preview.at) : (parseTime($('previewFrom').value) || 0);
-  drawScoreTimeline($('timeline'), comp, { head, duration: n => soundDur.get(n) || null });
+  const view = timelineWindow();
+  drawScoreTimeline($('timeline'), comp, { head, duration: n => soundDur.get(n) || null, viewStart: view.start, viewEnd: view.end });
   if (preview) {
     const end = Math.max(comp.end, 0);
     $('previewStatus').textContent = head < preview.st ? 'STARTING…' : `${fmtTime(head)} / ${fmtTime(end)}`;
@@ -738,6 +760,23 @@ $('timeline').addEventListener('click', ev => {
   const t = Math.max(0, Math.min(Math.max(comp.end, 1), Math.round($('timeline')._x2t(ev.clientX - r.left))));
   $('previewFrom').value = fmtTime(t);
 });
+$('timeline').addEventListener('wheel', ev => {
+  const canvas = $('timeline'), rect = canvas.getBoundingClientRect();
+  const view = timelineWindow();
+  if (ev.ctrlKey || ev.metaKey) {
+    ev.preventDefault();
+    const px = ev.clientX - rect.left;
+    const anchor = canvas._x2t(px);
+    setTimelineZoom(timelineZoom * Math.exp(-ev.deltaY * 0.01), anchor);
+  } else {
+    const pan = ev.deltaX || (ev.shiftKey ? ev.deltaY : 0);
+    if (!pan) return;
+    ev.preventDefault();
+    timelineStart += pan / Math.max(1, rect.width) * (view.end - view.start);
+    syncTimelineControls();
+  }
+}, { passive: false });
+syncTimelineControls();
 $('themeBtn').textContent = document.documentElement.dataset.theme === 'dark' ? '◐   Light' : '◐   Dark';
 
 // editor.html?link=… or ?score=<n> (scores.js) opens that piece straight

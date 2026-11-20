@@ -33,7 +33,7 @@ function envelopePoints(L, tail, tEnd) {
 //              are drawn ending with their file)
 // }
 // Sets canvas._x2t(px) → score time, for click-to-seek.
-function drawScoreTimeline(canvas, comp, { overrides = [], now = null, head = null, muted = [], duration = () => null } = {}) {
+function drawScoreTimeline(canvas, comp, { overrides = [], now = null, head = null, muted = [], duration = () => null, viewStart = 0, viewEnd = null } = {}) {
   const dpr = window.devicePixelRatio || 1;
   const r0 = canvas.getBoundingClientRect();
   if (!r0.width) return;
@@ -45,14 +45,17 @@ function drawScoreTimeline(canvas, comp, { overrides = [], now = null, head = nu
   const G = comp.groups.length, left = 28 * dpr, top = 16 * dpr;
   const laneH = (H - top) / G;
   const end = Math.max(comp.end, 1);
-  const x = t => left + (W - left - 6 * dpr) * (t / end);
+  viewStart = Math.max(0, Math.min(end, viewStart));
+  viewEnd = Math.max(viewStart + 0.01, Math.min(end, viewEnd ?? end));
+  const span = viewEnd - viewStart;
+  const x = t => left + (W - left - 6 * dpr) * ((t - viewStart) / span);
   c.font = `${10 * dpr}px 'Space Mono', monospace`;
   c.textBaseline = 'middle';
 
   // Minute grid
   c.strokeStyle = themeColor('--dim'); c.fillStyle = themeColor('--mid'); c.lineWidth = 1;
-  const step = end > 600 ? 120 : end > 180 ? 60 : end > 60 ? 15 : 5;
-  for (let t = 0; t <= end; t += step) {
+  const step = span > 600 ? 120 : span > 180 ? 60 : span > 60 ? 15 : span > 20 ? 5 : span > 5 ? 1 : 0.25;
+  for (let t = Math.ceil(viewStart / step) * step; t <= viewEnd; t += step) {
     c.beginPath(); c.moveTo(x(t), top); c.lineTo(x(t), H); c.stroke();
     c.fillText(fmtTime(t), x(t) + 3 * dpr, 7 * dpr);
   }
@@ -123,7 +126,7 @@ function drawScoreTimeline(canvas, comp, { overrides = [], now = null, head = nu
     c.strokeStyle = themeColor('--cp'); c.lineWidth = 1 * dpr; c.setLineDash([1 * dpr, 2 * dpr]);
     c.beginPath();
     for (let i = 0; i <= 200; i++) {
-      const t = end * i / 200, yy = top - 1 * dpr - 5 * dpr * valueAt(comp.spread, t) / maxS;
+      const t = viewStart + span * i / 200, yy = top - 1 * dpr - 5 * dpr * valueAt(comp.spread, t) / maxS;
       i ? c.lineTo(x(t), yy) : c.moveTo(x(t), yy);
     }
     c.stroke(); c.setLineDash([]); c.lineWidth = 1;
@@ -145,9 +148,9 @@ function drawScoreTimeline(canvas, comp, { overrides = [], now = null, head = nu
   });
 
   // Playhead, or the "start from" marker when stopped
-  if (head !== null && head >= 0 && head <= end) {
+  if (head !== null && head >= viewStart && head <= viewEnd) {
     c.strokeStyle = themeColor('--cp'); c.lineWidth = 2 * dpr;
     c.beginPath(); c.moveTo(x(head), top - 6 * dpr); c.lineTo(x(head), H); c.stroke();
   }
-  canvas._x2t = px => (px * dpr - left) / (W - left - 6 * dpr) * end;
+  canvas._x2t = px => viewStart + (px * dpr - left) / (W - left - 6 * dpr) * span;
 }
