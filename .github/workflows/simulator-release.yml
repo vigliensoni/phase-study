@@ -1,0 +1,33 @@
+# Builds the desktop simulator for Windows and macOS and attaches both to a
+# GitHub Release. To release: bump "version" in desktop/package.json, commit, then
+#   git tag simulator-v0.3.0 && git push origin simulator-v0.3.0
+name: Simulator release
+
+on:
+  push:
+    tags: ['simulator-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false

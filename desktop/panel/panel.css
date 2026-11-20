@@ -1,0 +1,276 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SIMULATOR PANEL — calm "liquid glass": neutral translucent layers with a
+   bright rim, generous rounded corners, sentence-case Helvetica at −25
+   tracking. Colour is kept for state only: solo blue, mute orange, a problem
+   red. On macOS the window itself is
+   translucent (vibrancy); elsewhere the layers sit on an opaque background.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Dark (default) */
+:root {
+  color-scheme: dark;
+  --fg: rgba(255, 255, 255, 0.92);
+  --mid: rgba(235, 235, 245, 0.58);
+  --faint: rgba(235, 235, 245, 0.28);
+  --solo: #0a84ff;
+  --mute: #ff9f0a;
+  --bad: #ff453a;
+  --ok: #30d158;
+  --on-state: #ffffff;
+
+  --backdrop: #141518;                          /* without native glass */
+  --tint: rgba(22, 23, 26, 0.55);               /* over native glass */
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-hover: rgba(255, 255, 255, 0.075);
+  --glass-bar: rgba(40, 41, 45, 0.55);
+  --fill: rgba(255, 255, 255, 0.07);            /* controls inside glass */
+  --fill-hover: rgba(255, 255, 255, 0.12);
+  --rim: inset 0 0.5px 0 rgba(255, 255, 255, 0.22), inset 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+  --shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.55);
+  --meter: rgba(255, 255, 255, 0.85);
+  --meter-pre: rgba(255, 255, 255, 0.18);
+  --menu-bg: #2c2d31;                           /* opened menus: solid, so their text always reads */
+  --menu-fg: #f2f2f4;
+
+  --r-xl: 26px;   /* toolbar, sheets */
+  --r-l: 22px;    /* cards, tiles */
+  --r-m: 12px;    /* menus, fields inside them */
+  --sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --ease: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --fg: rgba(0, 0, 0, 0.86);
+    --mid: rgba(60, 60, 67, 0.62);
+    --faint: rgba(60, 60, 67, 0.3);
+    --solo: #007aff;
+    --mute: #ff9500;
+    --bad: #ff3b30;
+    --ok: #34c759;
+
+    --backdrop: #ecebe8;
+    --tint: rgba(246, 245, 242, 0.5);
+    --glass: rgba(255, 255, 255, 0.5);
+    --glass-hover: rgba(255, 255, 255, 0.7);
+    --glass-bar: rgba(255, 255, 255, 0.6);
+    --fill: rgba(0, 0, 0, 0.045);
+    --fill-hover: rgba(0, 0, 0, 0.08);
+    --rim: inset 0 0.5px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+    --shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.3);
+    --meter: rgba(0, 0, 0, 0.7);
+    --meter-pre: rgba(0, 0, 0, 0.12);
+    --menu-bg: #ffffff;
+    --menu-fg: #1d1d1f;
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+/* Tracking −25 (−0.025 em) everywhere, set on each element so it scales with
+   that element's own size; Helvetica's kerning pairs on */
+*, *::before, *::after { letter-spacing: -0.025em; font-kerning: normal; text-rendering: optimizeLegibility; }
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+body {
+  font: 13px/1.4 var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  background: var(--backdrop);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+html.glass body { background: var(--tint); } /* macOS: the window is native glass; tint it rather than cover it */
+
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; }
+button:disabled { opacity: 0.35; cursor: default; }
+:focus-visible { outline: 2px solid var(--solo); outline-offset: 2px; }
+input, select { user-select: text; }
+
+.glass { background: var(--glass); box-shadow: var(--rim); }
+
+.hint { color: var(--mid); font-size: 12px; }
+.bad { color: var(--bad); }
+/* ── Toolbar: a floating capsule ──────────────────────────────────────────── */
+.toolbar {
+  flex: none;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px;
+  margin: 10px 10px 0; padding: 8px 10px 8px 20px;
+  border-radius: var(--r-xl);
+  background: var(--glass-bar);
+  box-shadow: var(--rim), var(--shadow);
+  backdrop-filter: blur(30px) saturate(1.6);
+  -webkit-app-region: drag;   /* the window moves by its toolbar (no title bar on macOS) */
+}
+html.mac .toolbar { padding-left: 88px; } /* room for the traffic lights */
+.toolbar button, .toolbar input, .toolbar label, .toolbar .pill { -webkit-app-region: no-drag; }
+
+.brand { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; min-width: 0; }
+.brand-name { font-size: 17px; font-weight: 500; }
+.brand-sub { font-size: 13px; color: var(--mid); }
+
+/* The server link */
+.link { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.link label { font-size: 12.5px; color: var(--mid); white-space: nowrap; }
+.link input {
+  flex: 1; min-width: 0; height: 30px; padding: 0 13px; border-radius: 999px;
+  font-size: 12.5px; color: var(--fg); background: var(--fill); border: 0;
+}
+.link input:focus { outline: none; background: var(--fill-hover); box-shadow: inset 0 0 0 1px var(--faint); }
+.link input::placeholder { color: var(--faint); }
+.link-err { margin: 6px 22px 0; font-size: 12px; }
+
+.tools { display: flex; gap: 6px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+.pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 13px; border-radius: 999px;
+  font-size: 12px; color: var(--mid); background: var(--fill);
+  white-space: nowrap; transition: background 0.2s, color 0.2s;
+}
+button.pill:hover { background: var(--fill-hover); color: var(--fg); }
+.pill b { color: var(--fg); font-weight: 500; }
+.pill[aria-pressed="true"] { color: var(--fg); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.wait { background: var(--mute); }
+.dot.off { background: var(--bad); }
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.main { flex: 1; min-height: 0; display: flex; }
+.workspace { flex: 1; min-width: 0; overflow-y: auto; padding: 14px 12px 28px; scrollbar-gutter: stable; }
+.conductor-slot {
+  flex: none; width: var(--conductor-w, 560px); margin: 10px 10px 10px 0;
+  border-radius: var(--r-l); overflow: hidden; background: var(--glass); box-shadow: var(--rim);
+}
+.splitter { flex: none; width: 10px; cursor: col-resize; position: relative; }
+.splitter::after {
+  content: ''; position: absolute; left: 3.5px; top: 50%; width: 3px; height: 36px; margin-top: -18px;
+  border-radius: 2px; background: var(--faint); opacity: 0.6; transition: opacity 0.2s;
+}
+.splitter:hover::after, .splitter.drag::after { opacity: 1; }
+body.no-conductor .splitter, body.no-conductor .conductor-slot,
+body.no-site .splitter, body.no-site .conductor-slot { display: none; }
+
+/* ── Bar: clients, solo ─────────────────────────────────────── */
+.bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; align-items: center; padding: 0 4px 14px; }
+.group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bar-label { font-size: 15px; font-weight: 500; margin-right: 4px; }
+
+.stepper { display: flex; align-items: center; border-radius: 999px; height: 30px; overflow: hidden; background: var(--fill); }
+.stepper button { width: 32px; height: 100%; font-size: 17px; color: var(--mid); }
+.stepper button:hover { color: var(--fg); background: var(--fill-hover); }
+.stepper input { width: 40px; height: 100%; text-align: center; background: none; border: 0; font-size: 14px; }
+.stepper input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.chip-btn {
+  height: 30px; padding: 0 13px; border-radius: 999px;
+  font-size: 12.5px; color: var(--fg); background: var(--fill);
+  transition: background 0.2s, color 0.2s; white-space: nowrap;
+}
+.chip-btn:hover:not(:disabled) { background: var(--fill-hover); }
+.chip-btn b { font-weight: 600; margin-right: 4px; color: var(--mid); }
+.chip-btn.solo.on { background: var(--solo); color: var(--on-state); }
+.chip-btn.solo.on b { color: inherit; }
+.chip-btn.primary { background: var(--solo); color: var(--on-state); }
+
+/* Before there's a link */
+body.no-site .bar { display: none; }
+.start { max-width: 620px; margin: 40px auto; padding: 22px 24px; border-radius: var(--r-l); }
+.start h2 { font-size: 17px; font-weight: 500; margin-bottom: 8px; }
+.start p { line-height: 1.55; }
+.start b { color: var(--fg); font-weight: 500; }
+
+/* ── Client grid ──────────────────────────────────────────────────────────── */
+.grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 220px), 1fr));
+}
+.grid.compact { --card-min: 180px; }
+.empty { text-align: center; padding: 48px; }
+
+.card {
+  position: relative; border-radius: var(--r-l); padding: 14px 14px 12px;
+  display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  background: var(--glass); box-shadow: var(--rim);
+  transition: background 0.25s, box-shadow 0.25s, opacity 0.3s var(--ease);
+  cursor: default;
+}
+.card:hover { background: var(--glass-hover); }
+.card.silent .card-body, .card.silent .num { opacity: 0.38; }
+.card.flash { background: var(--fill-hover); }
+.card.lost { box-shadow: var(--rim), inset 0 0 0 1px color-mix(in srgb, var(--bad) 40%, transparent); }
+
+.card-hd { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.num { font-size: 22px; font-weight: 300; line-height: 1; transition: opacity 0.3s; }
+.group-badge {
+  flex: none; display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 8px; border-radius: 999px;
+  font-size: 11.5px; color: var(--mid); background: var(--fill);
+}
+.group-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--g, var(--faint)); }
+.card-hd .grow { flex: 1; }
+.state-tag {
+  height: 22px; padding: 0 9px; border-radius: 999px; display: inline-flex; align-items: center;
+  font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.state-tag:empty { display: none; }
+.state-tag.solo { background: var(--solo); color: var(--on-state); }
+.state-tag.mute { background: var(--mute); color: #1b1203; }
+.state-tag.quiet { color: var(--mid); background: var(--fill); font-weight: 400; }
+.conn { width: 7px; height: 7px; border-radius: 50%; flex: none; background: transparent; }
+.conn.wait { background: var(--mute); }
+.conn.off { background: var(--bad); }
+
+.card-body { display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: center; transition: opacity 0.3s; }
+.ring { width: 52px; height: 52px; display: block; }
+.readout { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.status { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status.bad { color: var(--bad); }
+.now, .sync { font-size: 11px; color: var(--mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.4em; }
+.sync { color: var(--faint); }
+
+/* Level: what the client plays (faint) and what you hear (bright) */
+.meter { position: relative; height: 3px; border-radius: 2px; background: var(--fill); overflow: hidden; margin: 3px 0 1px; }
+.meter > i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 2px; transition: width 0.1s linear; }
+.meter > .pre { background: var(--meter-pre); }
+.meter > .post { background: var(--meter); }
+
+.out-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.out {
+  flex: 1; min-width: 0; height: 30px; padding: 0 28px 0 11px; border-radius: var(--r-m);
+  font-size: 12px; text-overflow: ellipsis; border: 0; color: var(--fg);
+  background: var(--fill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.3' fill='none'/%3E%3C/svg%3E") no-repeat right 11px center;
+  -webkit-appearance: none; cursor: pointer;
+}
+.out:hover { background-color: var(--fill-hover); }
+/* The opened list: on Windows it takes the menu's own colours, and the
+   menu's background is see-through, so the list came out nearly white under
+   white text. Solid colours keep every entry readable. */
+.out option, .out optgroup { background-color: var(--menu-bg); color: var(--menu-fg); }
+.out optgroup { font-weight: 600; }
+.out option { font-weight: 400; }
+.out.bad { color: var(--bad); }
+
+.card-ft { display: flex; align-items: center; gap: 4px; }
+.card-ft .grow { flex: 1; }
+.sm-btn {
+  height: 28px; min-width: 28px; padding: 0 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; color: var(--mid); background: var(--fill);
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+.sm-btn:hover { color: var(--fg); background: var(--fill-hover); }
+.sm-btn.solo.on { background: var(--solo); color: var(--on-state); }
+.sm-btn.mute.on { background: var(--mute); color: #1b1203; }
+.sm-btn.plain { font-weight: 400; background: none; }
+.sm-btn.plain:hover { background: var(--fill-hover); }
+/* The less-used buttons show on hover or focus */
+.card .sm-btn.extra { opacity: 0; }
+.card:hover .sm-btn.extra, .card:focus-within .sm-btn.extra { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
