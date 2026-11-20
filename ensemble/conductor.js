@@ -444,3 +444,7 @@ renderRoster();
 setInterval(renderRoster, 1000);
 loadDurations(comp.sounds.map(scoreURL));
 requestAnimationFrame(renderLoop);
+
+document.body.addEventListener('keydown', ev => {
+  if (ev.key === ' ' && ev.target === document.body) { ev.preventDefault(); togglePlay(); }
+});

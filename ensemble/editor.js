@@ -747,3 +747,7 @@ render();
 if (startParams.get('link')) openLink(startParams.get('link'));
 else if (startParams.get('score') !== null && SCORES[+startParams.get('score')]) openBuiltIn(startParams.get('score'));
 requestAnimationFrame(renderLoop);
+
+document.body.addEventListener('keydown', ev => {
+  if (ev.key === ' ' && ev.target === document.body) { ev.preventDefault(); previewToggle(); }
+});
