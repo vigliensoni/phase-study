@@ -1,0 +1,70 @@
+{
+  "name": "phase-study-desktop",
+  "productName": "Phase Study Simulator",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Runs the ensemble conductor, a local backend and many simulated clients in one desktop app, each client on its own speaker or channel.",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "dist": "electron-builder",
+    "dist:dir": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.1",
+    "jszip": "3.10.1",
+    "mqtt": "5.16.0",
+    "qrcode-generator": "2.0.4"
+  },
+  "build": {
+    "appId": "io.github.vigliensoni.phase-study.simulator",
+    "files": [
+      "*.js",
+      "inject/**",
+      "panel/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "..",
+        "to": "site",
+        "filter": [
+          "index.html",
+          "style.css",
+          "LICENSE.md",
+          "ensemble/**",
+          "assets/**",
+          "!assets/ableton/**"
+        ]
+      },
+      {
+        "from": "node_modules",
+        "to": "vendor",
+        "filter": [
+          "mqtt/dist/mqtt.min.js",
+          "qrcode-generator/dist/qrcode.js",
+          "jszip/dist/jszip.min.js"
+        ]
+      }
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.music",
+      "identity": null
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Audio"
+    }
+  },
+  "dependencies": {
+    "aedes": "1.2.0",
+    "ws": "8.23.0"
+  }
+}
