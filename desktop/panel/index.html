@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- The panel only runs its own files: no inline scripts, nothing from the network -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<title>Phase Study Simulator</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+
+<!-- ── Toolbar: name, server link, room, conductor ──────────────────────────── -->
+<header class="toolbar glass">
+  <div class="brand">
+    <span class="brand-name">Phase Study</span>
+    <span class="brand-sub">Simulator</span>
+  </div>
+
+  <form class="link" id="linkForm">
+    <label for="link">Server link</label>
+    <input type="url" id="link" placeholder="Paste the site's link, e.g. https://….trycloudflare.com" spellcheck="false" autocomplete="off">
+    <button class="chip-btn primary" type="submit">Load</button>
+  </form>
+
+  <div class="tools">
+    <span class="pill" id="roomPill" title="The room on the site's broker"><span class="dot" id="netDot"></span>Room <b id="room">—</b></span>
+    <button class="chip-btn" id="newRoom" title="Start a fresh room on this server" disabled>New room</button>
+    <button class="pill" id="toggleConductor" aria-pressed="true" title="Show or hide the conductor">Conductor</button>
+  </div>
+</header>
+<p class="link-err bad" id="linkErr" hidden></p>
+
+<div class="main">
+  <!-- ── Workspace: the clients ─────────────────────────────────────────────── -->
+  <main class="workspace" id="workspace">
+
+    <div class="bar">
+      <div class="group">
+        <span class="bar-label">Clients</span>
+        <div class="stepper">
+          <button id="fewer" aria-label="Remove the last client" title="Remove the last client">−</button>
+          <input type="number" id="count" min="0" max="40" value="0" aria-label="Number of clients" title="Number of clients: type a number and press Enter">
+          <button id="more" aria-label="Add a client" title="Add a client">+</button>
+        </div>
+        <span class="hint" id="joinedTxt"></span>
+      </div>
+      <div class="group">
+        <span class="hint" id="soloTxt"></span>
+        <button class="chip-btn" id="clearBtn" title="Clear solo and mute: everyone audible">Clear solo</button>
+      </div>
+    </div>
+
+    <section class="grid" id="grid" aria-label="Clients"></section>
+    <p class="empty hint" id="empty" hidden>No clients. Press + to add one.</p>
+    <div class="start glass" id="start" hidden>
+      <h2>Paste your server link to start</h2>
+      <p class="hint">The site's address, for example your Cloudflare tunnel (<b>https://….trycloudflare.com</b>), or any page of it.
+        Add <b>?room=ABCD</b> to join a room that already exists; otherwise the simulator makes one up.
+        The conductor and every client load from that address, so real phones can join the same room from the conductor's QR code.</p>
+    </div>
+  </main>
+
+  <!-- ── The conductor page goes here (a separate view, placed by the app) ─── -->
+  <div class="splitter" id="splitter" title="Drag to resize the conductor" role="separator" aria-orientation="vertical"></div>
+  <aside class="conductor-slot" id="conductorSlot" aria-label="Conductor"></aside>
+</div>
+
+<script src="panel.js"></script>
+</body>
+</html>
