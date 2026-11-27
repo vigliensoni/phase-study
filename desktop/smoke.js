@@ -96,7 +96,7 @@ async function run({ conductor, panel, phones, snapshot }) {
     // ── Connecting through the link ───────────────────────────────────────────
     await until('the conductor to connect', () => conduct('client.connected'), 20000);
     const url = conductor.webContents.getURL();
-    check('the conductor loads from the server link', url.startsWith(snap0.site + '/ensemble/conductor.html'), url);
+    check('the conductor loads from the server link', url.startsWith(snap0.site + '/conductor.html'), url);
     check('the conductor is in the simulator’s room', (await conduct('room')) === snapshot().room, snapshot().room);
     const broker = await conduct('BROKER_URL');
     check('the conductor uses the site’s broker (no server of its own)', /^wss:\/\//.test(broker) && !/127\.0\.0\.1|localhost/.test(broker), broker);
@@ -105,7 +105,7 @@ async function run({ conductor, panel, phones, snapshot }) {
     check(`${COUNT} clients joined and synced without a tap`, true);
     const urls = phones().map(p => p.wc.getURL());
     check('every client loads the performer page from the same link and room',
-      urls.every(u => u.startsWith(snap0.site + '/ensemble/index.html') && new URL(u).searchParams.get('room') === snapshot().room));
+      urls.every(u => u.startsWith(snap0.site + '/index.html') && new URL(u).searchParams.get('room') === snapshot().room));
     const ids = await Promise.all(phones().map(p => page(p, 'myId')));
     check('every client has its own identity', new Set(ids).size === COUNT, ids.join(' '));
     await until('the conductor to list every client', async () => (await conduct('awakeIds().length')) >= COUNT, 20000);

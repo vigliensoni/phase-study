@@ -16,6 +16,7 @@ npm start
 
 1. Serve the site and open a Cloudflare tunnel to it (see the main [README](../README.md)).
 2. Paste the tunnel link into **Server link** and press **Load**. The conductor appears on the right and the simulated phones join.
+   - A hosted copy works too: paste the link to its conductor or phone page (e.g. `https://….github.io/repo/app/conductor.html`). The simulator loads both pages from that page's folder. A bare site address means the pages are in `/ensemble/`.
    - To join a room that already exists, add `?room=ABCD` to the link.
    - Real phones can join the same room from the conductor's QR code.
 3. Set the number of phones with **− / +**.

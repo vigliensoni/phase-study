@@ -32,7 +32,7 @@ const POLL_MS = 150;         // how often the panel's view of the clients refres
 const GLASS = process.platform === 'darwin'; // native translucent window
 
 let cfg = SMOKE ? { ...config.DEFAULTS, link: SMOKE_LINK } : null;
-let site = null;          // from the link: { base, room, broker }, or null until there's a link
+let site = null;          // from the link: { pages, room, broker }, or null until there's a link
 let ownRoom = null;       // the room made up at launch, for a link without ?room=
 let win = null, conductor = null, panel = null;
 const phones = new Map(); // number → Instance
@@ -48,21 +48,21 @@ function newRoom() {
 }
 
 // ── The server link ───────────────────────────────────────────────────────────
-// Accepts the site's address or any page of it: https://x.trycloudflare.com,
-// …/ensemble/index.html?room=ABCD, …/ensemble/conductor.html. The site is
-// everything before /ensemble/; the room and broker come from the link if it
-// has them.
+// Accepts a page of the site, wherever its pages live:
+//   https://x.trycloudflare.com/ensemble/conductor.html?room=ABCD
+//   https://someone.github.io/repo/app/conductor.html
+// or the site's address alone (https://x.trycloudflare.com), which means its
+// pages are in /ensemble/. The pages folder is the folder of the page in the
+// link; the room and broker come from the link if it has them.
 function parseLink(text) {
   let u;
   try { u = new URL(String(text || '').trim()); } catch (e) { throw new Error('That isn’t a web address'); }
   if (!/^https?:$/.test(u.protocol)) throw new Error('The link must start with http:// or https://');
-  let p = u.pathname;
-  const i = p.indexOf('/ensemble/');
-  if (i >= 0) p = p.slice(0, i);
-  else p = p.replace(/\/[^/]*\.html?$/, '').replace(/\/ensemble\/?$/, '');
-  p = p.replace(/\/+$/, '');
+  let p = u.pathname.replace(/\/+$/, '');
+  if (/\.html?$/i.test(p)) p = p.replace(/\/[^/]*$/, '');  // a page: its folder
+  else if (!/\/ensemble$/.test(p)) p += '/ensemble';        // the site's address: the usual folder
   const room = (u.searchParams.get('room') || '').trim().toUpperCase();
-  return { base: u.origin + p, room: room || null, broker: u.searchParams.get('broker') || '' };
+  return { pages: u.origin + p, room: room || null, broker: u.searchParams.get('broker') || '' };
 }
 
 const room = () => (site && site.room) || ownRoom;
@@ -71,8 +71,8 @@ function query() {
   if (site.broker) q.set('broker', site.broker);
   return q;
 }
-const conductorURL = () => `${site.base}/ensemble/conductor.html?${query()}`;
-const phoneURL     = () => `${site.base}/ensemble/index.html?${query()}`;
+const conductorURL = () => `${site.pages}/conductor.html?${query()}`;
+const phoneURL     = () => `${site.pages}/index.html?${query()}`;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // WINDOW
@@ -215,7 +215,7 @@ async function poll() {
 }
 
 const snapshot = () => ({
-  room: site ? room() : null, site: site ? site.base : null, cfg, maxClients: MAX_CLIENTS,
+  room: site ? room() : null, site: site ? site.pages : null, cfg, maxClients: MAX_CLIENTS,
   conductor: conductorInfo,
   solo: [...solo], mute: [...mute],
   phones: numbers().map(n => phones.get(n).snapshot()),
