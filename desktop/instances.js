@@ -17,6 +17,7 @@ const { WebContentsView, BaseWindow, session } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { prepareSession } = require('./permissions');
+const { shareSounds } = require('./sound-cache');
 const { lockNavigation, SAFE_PREFS } = require('./guard');
 
 const OUTPUT_STAGE = fs.readFileSync(path.join(__dirname, 'inject', 'output-stage.js'), 'utf8');
@@ -76,6 +77,7 @@ class Instance {
     // In memory only, so each launch starts with fresh phones
     const ses = session.fromPartition(`sim-${n}`);
     prepareSession(ses);
+    shareSounds(ses);                              // one download of each sound for every phone
     this.view = new WebContentsView({ webPreferences: {
       ...SAFE_PREFS, session: ses,
       backgroundThrottling: false,                 // keep its timers (clock pings, drift checks) running while hidden

@@ -10,6 +10,7 @@
 //   instances.js   the simulated phones
 //   inject/        added to each phone: its output stage (speaker, channels, solo)
 //   permissions.js what the pages may use
+//   sound-cache.js downloads each sound once for every page
 //   guard.js       keeps pages from navigating away
 //   config.js      saved settings
 //   preload.js     the panel's bridge to this process
@@ -24,6 +25,7 @@ const config = require('./config');
 const { prepareSession } = require('./permissions');
 const { lockNavigation, SAFE_PREFS } = require('./guard');
 const { Instance } = require('./instances');
+const soundCache = require('./sound-cache');
 
 const SMOKE = process.argv.includes('--smoke'); // automated test: default settings, quits when done
 const SMOKE_LINK = (process.argv.find(a => a.startsWith('--link=')) || '').slice(7);
@@ -173,6 +175,7 @@ function load(link) {
   site = parseLink(link); // throws if it isn't a link
   cfg.link = String(link).trim();
   saveConfig();
+  soundCache.clear(); // a fixed file on the site comes in fresh
   for (const p of phones.values()) p.destroy();
   phones.clear();
   solo.clear(); mute.clear();
@@ -287,6 +290,7 @@ app.whenReady().then(async () => {
   ownRoom = newRoom();
   try { if (cfg.link) site = parseLink(cfg.link); } catch (e) { site = null; }
   prepareSession(session.defaultSession); // the conductor's and the panel's
+  soundCache.shareSounds(session.defaultSession); // the conductor reads every sound's length too
   registerIPC();
   createWindow();
   setCount(cfg.count);
