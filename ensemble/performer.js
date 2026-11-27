@@ -92,7 +92,7 @@ function getBufferURL(url) {
     buffers.set(url, fetch(url)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
       .then(d => ctx.decodeAudioData(d))
-      .then(b => { decoded.set(url, b); ready.add(url); sendPresence(); return b; })
+      .then(b => { decoded.set(url, b); ready.add(url); sendPresence(); soundArrived(url); return b; })
       .catch(e => { buffers.delete(url); throw e; }));
   }
   return buffers.get(url);
@@ -102,6 +102,47 @@ function getBufferURL(url) {
 // a piece loaded from a link; null for the scores in scores.js)
 const scoreURL = (S, n) => soundURL(n, S.score, S.source);
 const scoreURLs = S => compiledFor(S).sounds.map(n => scoreURL(S, n));
+
+// This phone's own sounds, in the order its group first needs them
+function myURLs(S) {
+  const a = myAssign(S);
+  if (!a) return [];
+  const first = new Map(); // url → earliest start
+  for (const L of compiledFor(S).layers) {
+    if (L.group !== a[0]) continue;
+    const u = scoreURL(S, L.sound);
+    first.set(u, Math.min(first.has(u) ? first.get(u) : Infinity, L.start));
+  }
+  return [...first.keys()].sort((x, y) => first.get(x) - first.get(y));
+}
+
+// Downloads come in the order they're needed: this phone's own sounds first,
+// one at a time, earliest first (so the opening sound isn't sharing the
+// network with one that plays minutes later), then the rest of the score in
+// the background (for a re-deal into another group). Each sound plays as
+// soon as it arrives (soundArrived). A download that fails on the network is
+// tried again; a missing file (HTTP 4xx) isn't.
+const RETRIES = [2000, 5000, 10000];
+let lastOwn = '';
+async function fetchSounds(S) {
+  const own = myURLs(S);
+  if (own.join() !== lastOwn) { lastOwn = own.join(); missingMine = []; } // another piece or group
+  if (!own.length) return; // not dealt into a group yet: wait for it, so its own sounds go first
+  for (const u of own) {
+    for (let i = 0; ; i++) {
+      try { await getBufferURL(u); break; }
+      catch (e) {
+        if (/HTTP 4/.test(e.message) || i >= RETRIES.length) break;
+        await new Promise(r => setTimeout(r, RETRIES[i]));
+      }
+    }
+  }
+  if (myURLs(state || S).join() === own.join()) {
+    missingMine = own.filter(u => !decoded.has(u));
+    renderStatus();
+  }
+  for (const u of scoreURLs(S)) if (!own.includes(u)) getBufferURL(u).catch(() => {});
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLAYBACK
@@ -133,32 +174,51 @@ function isMuted(S) { const a = myAssign(S); return !!(a && S.muted && S.muted.i
 
 let missingMine = []; // URLs of this phone's sounds that couldn't be loaded
 
-async function applyScore(S) {
+// Starts at once with whatever sounds are already here; the others join as
+// they arrive (soundArrived), each at the right point in the piece. A missing
+// file (a typo in the score, or not pushed to the repo yet) silences only its
+// own sound, and shows in the status.
+function applyScore(S) {
   const comp = compiledFor(S);
   const a = myAssign(S);
   if (!a) { stopScore(0); return; }
   const [group, rank] = a;
-  const mine = comp.layers.filter(L => L.group === group);
   scoreBus.gain.setTargetAtTime(isMuted(S) ? 0 : 1, ctx.currentTime, 0.05);
-
-  // Play whatever loaded: a missing file (a typo in the score, or not pushed
-  // to the repo yet) silences only its own sound, and shows in the status
-  const urls = [...new Set(mine.map(L => scoreURL(S, L.sound)))];
-  const got = await Promise.allSettled(urls.map(getBufferURL));
-  if (state !== S) return;
-  missingMine = urls.filter((u, i) => got[i].status === 'rejected');
+  fetchSounds(S);
 
   const key = [S.epoch, group, rank, JSON.stringify(S.overrides || [])].join('|');
   if (run && run.key === key) { run.S = S; return; }
   scheduleScore(S, comp, group, rank, key, !!(run && run.epoch === S.epoch));
 }
 
-// Build every node for this phone's layers, from "now" to the end of the piece.
-function scheduleScore(S, comp, group, rank, key, smooth) {
+// A sound finished loading: if this phone is playing and needs it, add its
+// layers now, from this point in the piece (fading in if it's mid-sound)
+function soundArrived(url) {
+  if (!run || !run.want.has(url) || run.have.has(url)) return;
+  if (!state || !state.playing || state.epoch !== run.epoch) return;
+  run.have.add(url);
+  const { ts, at } = seatTime();
+  const S = run.S;
+  run.nodes.push(...scheduleLayers(ctx, run.comp, {
+    group: run.group, rank: run.rank, st: (ts - S.T0) / 1000, at, smooth: true, fade: 0.03, overrides: S.overrides,
+    bufferFor: L => (scoreURL(S, L.sound) === url ? bufferNow(url) : null), destination: run.chain.input,
+  }));
+  renderStatus();
+}
+
+// A moment just ahead to start sounds at: { ts: shared clock (ms), at: context time (s) }
+function seatTime() {
   let ts = sharedNow() + 150;
   let at = ctxTimeFor(ts);
   const earliest = ctx.currentTime + 0.03;
   if (at < earliest) { ts += (earliest - at) * 1000; at = earliest; }
+  return { ts, at };
+}
+
+// Build every node for this phone's layers, from "now" to the end of the piece.
+// Layers whose sound hasn't arrived yet are left out; soundArrived adds them.
+function scheduleScore(S, comp, group, rank, key, smooth) {
+  const { ts, at } = seatTime();
   const st  = (ts - S.T0) / 1000;               // score time at `at`
   const c   = t => at + (t - st);               // score time → context time
   const fade = smooth ? 0.03 : 0.005;
@@ -179,7 +239,9 @@ function scheduleScore(S, comp, group, rank, key, smooth) {
     group, rank, st, at, smooth, fade, overrides: S.overrides,
     bufferFor: L => bufferNow(scoreURL(S, L.sound)), destination: chain.input,
   });
-  run = { key, epoch: S.epoch, nodes, seatK: at - ts / 1000, S, comp, group, rank, chain, chainKey };
+  const want = new Set(myURLs(S));
+  const have = new Set([...want].filter(u => bufferNow(u)));
+  run = { key, epoch: S.epoch, nodes, seatK: at - ts / 1000, S, comp, group, rank, chain, chainKey, want, have };
 }
 
 function fadeOutNodes(nodes, at, fade) {
@@ -202,7 +264,7 @@ function stopScore(tShared) {
   run = null;
 }
 
-// Decoded buffers, synchronously (applyScore awaited them already)
+// Decoded buffers, synchronously (null until a sound has arrived)
 const decoded = new Map();
 function bufferNow(url) { return (url && decoded.get(url)) || null; }
 
@@ -253,8 +315,7 @@ function connect() {
     if (topic === T.state) {
       if (m.v !== 2) return;
       state = m;
-      // Start downloading the whole score's sounds
-      scoreURLs(m).forEach(u => getBufferURL(u).catch(() => {}));
+      fetchSounds(m); // this phone's own sounds first, then the rest of the score
       return applyState();
     }
     if (topic === T.calib) onCalib(m);

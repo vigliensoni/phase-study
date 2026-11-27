@@ -1,0 +1,42 @@
+{
+  "name": "phase-study-desktop",
+  "productName": "Phase Study Simulator",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Runs the ensemble conductor and many simulated clients in one desktop app, loaded from your server link, each client on its own speaker or channel.",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "smoke": "node scripts/start.js --smoke",
+    "dist": "electron-builder",
+    "dist:dir": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "io.github.vigliensoni.phase-study.simulator",
+    "files": [
+      "*.js",
+      "inject/**",
+      "panel/**",
+      "package.json"
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.music",
+      "identity": null,
+      "artifactName": "Phase-Study-Simulator-${version}-mac.${ext}"
+    },
+    "win": {
+      "target": "portable",
+      "artifactName": "Phase-Study-Simulator-${version}-win-x64.${ext}"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Audio"
+    }
+  }
+}
