@@ -10,6 +10,7 @@ const call = name => (...args) => ipcRenderer.invoke(name, ...args);
 contextBridge.exposeInMainWorld('sim', {
   snapshot:       call('snapshot'),        // → { room, site, cfg, conductor, solo, mute, phones }
   setLink:        call('link'),            // (server link): load the conductor and the clients from it
+  newRoom:        call('new-room'),         // start a fresh room on the current server
   setCount:       call('count'),           // (n)
   remove:         call('remove'),          // ([client numbers])
   setOutputs:     call('outputs'),         // ({ client: { device, channels } })

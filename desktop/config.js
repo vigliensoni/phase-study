@@ -16,7 +16,7 @@ const path = require('path');
 //             [n] = channel n, [n, n + 1] = a stereo pair)
 // conductor   { shown, width }: the conductor column
 const DEFAULTS = {
-  link: '', count: 4, outputs: {},
+  link: '', room: '', count: 4, outputs: {},
   conductor: { shown: true, width: 560 },
 };
 
@@ -24,24 +24,41 @@ const file = () => path.join(app.getPath('userData'), 'simulator.json');
 
 function load() {
   let saved = {};
-  try { saved = JSON.parse(fs.readFileSync(file(), 'utf8')); }
-  catch (e) {} // first launch, or an unreadable file
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file(), 'utf8'));
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) saved = parsed;
+  }
+  catch (e) {
+    if (e.code !== 'ENOENT') console.error('Could not load settings:', e.message);
+  }
   return {
     link: typeof saved.link === 'string' ? saved.link : DEFAULTS.link,
+    room: typeof saved.room === 'string' ? saved.room : DEFAULTS.room,
     count: Number.isFinite(saved.count) ? saved.count : DEFAULTS.count,
-    outputs: { ...saved.outputs },
-    conductor: { ...DEFAULTS.conductor, ...saved.conductor },
+    outputs: saved.outputs && typeof saved.outputs === 'object' ? { ...saved.outputs } : {},
+    conductor: { ...DEFAULTS.conductor, ...(saved.conductor || {}) },
   };
 }
 
 // Saves at most every half second (the panel saves on every change)
 let timer = null;
-function save(cfg) {
-  clearTimeout(timer);
-  timer = setTimeout(() => {
-    try { fs.writeFileSync(file(), JSON.stringify(cfg, null, 2)); }
-    catch (e) { console.error('Could not save settings:', e.message); }
-  }, 500);
+let pending = null;
+function write() {
+  if (!pending) return;
+  try { fs.writeFileSync(file(), JSON.stringify(pending, null, 2)); }
+  catch (e) { console.error('Could not save settings:', e.message); }
+  pending = null;
 }
 
-module.exports = { DEFAULTS, load, save };
+function save(cfg) {
+  clearTimeout(timer);
+  pending = cfg;
+  timer = setTimeout(write, 500);
+}
+
+function flush() {
+  clearTimeout(timer);
+  write();
+}
+
+module.exports = { DEFAULTS, load, save, flush };

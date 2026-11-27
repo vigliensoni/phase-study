@@ -18,6 +18,7 @@ const MAC = params.get('platform') === 'darwin';
 let snap = null;              // the latest snapshot
 let devices = [];             // connected outputs: [{ label, channels }] (without the default)
 let defaultChannels = 2;      // the default output's channels
+let creatingRoom = false;
 
 const isSolo = n => snap && snap.solo.includes(n);
 const isMuted = n => snap && snap.mute.includes(n);
@@ -217,6 +218,7 @@ function update() {
   // ── Toolbar ─────────────────────────────────────────────────────────────────
   if (document.activeElement !== $('link') && !linkEdited) $('link').value = snap.cfg.link;
   $('room').textContent = snap.room || '—';
+  $('newRoom').disabled = !snap.site || creatingRoom;
   const online = !!(C && C.online);
   $('netDot').className = 'dot ' + (!snap.site ? '' : online ? 'ok' : 'wait');
   $('roomPill').title = !snap.site ? 'No server link yet'
@@ -345,6 +347,22 @@ $('linkForm').addEventListener('submit', async ev => {
   } catch (e) {
     err.textContent = e.message.replace(/^.*Error: /, '');
     err.hidden = false;
+  }
+});
+
+$('newRoom').addEventListener('click', async () => {
+  const err = $('linkErr');
+  creatingRoom = true;
+  $('newRoom').disabled = true;
+  err.hidden = true;
+  try {
+    await sim.newRoom();
+  } catch (e) {
+    err.textContent = e.message.replace(/^.*Error: /, '');
+    err.hidden = false;
+  } finally {
+    creatingRoom = false;
+    $('newRoom').disabled = !snap || !snap.site;
   }
 });
 

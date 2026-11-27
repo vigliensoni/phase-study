@@ -168,11 +168,7 @@ function setCount(count) {
   for (let n = 1; phones.size < count; n++) if (!phones.has(n)) addClient(n);
 }
 
-// A new link: the conductor and every client again, from scratch
-function load(link) {
-  site = parseLink(link); // throws if it isn't a link
-  cfg.link = String(link).trim();
-  saveConfig();
+function reloadRoom() {
   for (const p of phones.values()) p.destroy();
   phones.clear();
   solo.clear(); mute.clear();
@@ -180,6 +176,31 @@ function load(link) {
   conductor.webContents.loadURL(conductorURL());
   placeConductor(conductorRect);
   setCount(cfg.count);
+}
+
+// A new link: the conductor and every client again, from scratch
+function load(link) {
+  site = parseLink(link); // throws if it isn't a link
+  ownRoom = site.room || newRoom();
+  cfg.link = String(link).trim();
+  cfg.room = site.room || ownRoom;
+  saveConfig();
+  reloadRoom();
+}
+
+function startNewRoom() {
+  if (!site) throw new Error('Load a server link before starting a new room');
+  let code;
+  do { code = newRoom(); } while (code === room());
+  site.room = code;
+  ownRoom = code;
+  cfg.room = code;
+  const link = new URL(cfg.link);
+  link.searchParams.set('room', code);
+  cfg.link = link.toString();
+  saveConfig();
+  reloadRoom();
+  return code;
 }
 
 // Solo and mute only change each client's level, never its playback
@@ -248,6 +269,7 @@ function cleanOutput(o) {
 function registerIPC() {
   handle('snapshot', snapshot);
   handle('link', link => load(link));
+  handle('new-room', () => startNewRoom());
   handle('count', n => setCount(n));
   handle('remove', ns => { list(ns).forEach(removeClient); cfg.count = phones.size; saveConfig(); });
 
@@ -284,8 +306,15 @@ function registerIPC() {
 // ═══════════════════════════════════════════════════════════════════════════════
 app.whenReady().then(async () => {
   if (!cfg) cfg = config.load();
-  ownRoom = newRoom();
-  try { if (cfg.link) site = parseLink(cfg.link); } catch (e) { site = null; }
+  ownRoom = /^[A-Z2-9]{4}$/.test(cfg.room) ? cfg.room : newRoom();
+  try {
+    if (cfg.link) site = parseLink(cfg.link);
+    if (site && site.room) ownRoom = site.room;
+    cfg.room = site && site.room ? site.room : ownRoom;
+  } catch (e) {
+    site = null;
+    console.error('Could not restore the saved server link:', e.message);
+  }
   prepareSession(session.defaultSession); // the conductor's and the panel's
   registerIPC();
   createWindow();
@@ -301,6 +330,10 @@ app.on('will-quit', () => {
   quitting = true;
   for (const p of phones.values()) p.destroy();
   phones.clear();
+  if (!SMOKE) {
+    saveConfig();
+    config.flush();
+  }
 });
 
 app.on('window-all-closed', () => app.quit());

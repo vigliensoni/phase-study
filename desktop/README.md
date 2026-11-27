@@ -18,6 +18,7 @@ npm start
 2. Paste the tunnel link into **Server link** and press **Load**. The conductor appears on the right and the simulated phones join.
    - To join a room that already exists, add `?room=ABCD` to the link.
    - Real phones can join the same room from the conductor's QR code.
+   - Press **New room** to generate a fresh room code on the loaded server. The conductor and simulator clients move to it, and the new code is saved for the next launch.
 3. Set the number of phones with **− / +**.
 4. Use the menu on each card to choose where that phone plays: stereo on an output, or a single channel.
 5. Start the piece from the conductor, or press **Space**.
@@ -32,6 +33,11 @@ On each card:
 | **⧉** / **↻** / **×** | Show its page / reload it / remove it |
 
 Solo and mute only change what you hear. Every phone keeps playing in time.
+
+The app automatically saves its workspace in Electron's user-data folder. On
+the next launch it restores the server link and room, client count, each
+client's output routing, and conductor visibility and width. Solo and mute are
+cleared on launch, and playback is not automatically resumed.
 
 ## Testing
 
